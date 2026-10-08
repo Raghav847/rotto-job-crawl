@@ -38,7 +38,10 @@ def discovery_url(source, query, page):
         from urllib.parse import quote
         slug = quote(query.lower().replace(" ", "-"), safe="-")
         return f"https://www.reed.co.uk/jobs/{slug}-jobs"
-    return "https://uk.indeed.com/jobs?" + urlencode({"q": query, "l": "United Kingdom", "start": page * 10})
+    parameters = {"q": query, "l": "United Kingdom"}
+    if page:
+        parameters["start"] = page * 10
+    return "https://uk.indeed.com/jobs?" + urlencode(parameters)
 
 
 def observe(connection, source, counters, *, discovered=(), details=(), removed=(), failed=()):
@@ -148,13 +151,13 @@ def crawl_source(connection, fetcher, folder, source, queries, limits, counters)
             break
         result = fetcher.fetch(source, "detail", candidate.url)
         summary["details_fetched"] += 1
-        if result.status in (404, 410) and not result.blocked_reason:
+        if result.status in (404, 410) and not result.blocked_reason and not result.error_type:
             confirmation = fetcher.fetch(source, "removal_confirmation", candidate.url)
             try:
                 matches = source_id(source, result.url) == identity and source_id(source, confirmation.url) == identity
             except ExtractionError:
                 matches = False
-            if confirmation.status in (404, 410) and not confirmation.blocked_reason and matches:
+            if confirmation.status in (404, 410) and not confirmation.blocked_reason and not confirmation.error_type and matches:
                 observe(connection, source, counters, removed=[identity])
                 event("confirmed_not_found", source_job_id=identity)
                 continue
@@ -169,12 +172,12 @@ def crawl_source(connection, fetcher, folder, source, queries, limits, counters)
         try:
             if source_id(source, result.url) != identity:
                 raise ExtractionError("Redirected to a different source listing")
-            if expired_page(source, result.text):
+            if expired_page(source, result.text, identity):
                 observe(connection, source, counters, removed=[identity])
                 event("explicit_expiry", source_job_id=identity)
                 continue
             previous = known.get(identity, {}).get("posted_at")
-            listing = parse_detail(source, result.text, result.url, now(), previous)
+            listing = parse_detail(source, result.text, result.url, now(), previous, result.rendered_metadata)
         except IneligibleListing as exc:
             reason = str(exc)
             rejected[reason] += 1
@@ -208,7 +211,7 @@ def main():
         return
     if mode != "live":
         raise ValueError("CRAWL_MODE must be live or probe")
-    sources = [value.strip() for value in os.environ.get("CRAWL_SOURCES", "indeed,linkedin,reed").split(",")]
+    sources = [value.strip() for value in os.environ.get("CRAWL_SOURCES", "linkedin,reed,indeed").split(",")]
     if not sources or len(sources) != len(set(sources)) or set(sources) - {"indeed", "linkedin", "reed"}:
         raise ValueError("CRAWL_SOURCES must contain unique supported sources")
     queries = [value.strip() for value in os.environ.get("CRAWL_QUERIES", "software engineer").split(",") if value.strip()]
@@ -218,7 +221,7 @@ def main():
               "details": integer_setting("CRAWL_MAX_DETAILS", 10, 0),
               "refresh_hours": integer_setting("DETAIL_REFRESH_HOURS", 24)}
     folder = Path("output/runs") / (now().strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8])
-    fetcher = Fetcher(folder, max_requests=integer_setting("CRAWL_MAX_REQUESTS", 100),
+    fetcher = Fetcher(folder, max_requests=integer_setting("CRAWL_MAX_REQUESTS", 300),
                       max_seconds=integer_setting("CRAWL_MAX_SECONDS", 600),
                       delay=float(os.environ.get("CRAWL_REQUEST_DELAY", "1")),
                       save_pages=os.environ.get("CRAWL_SAVE_PAGES") == "1")
@@ -234,7 +237,10 @@ def main():
             try:
                 for source in sources:
                     report["source_runs"][source] = {"status": "running"}
-                    report["source_runs"][source] = crawl_source(connection, fetcher, folder, source, queries, limits, counters)
+                    try:
+                        report["source_runs"][source] = crawl_source(connection, fetcher, folder, source, queries, limits, counters)
+                    finally:
+                        fetcher.finish_source(source)
                     print(f"{source}: {json.dumps(report['source_runs'][source])}")
             except CrawlBudgetExceeded:
                 report["status"] = "budget_limited"

@@ -59,12 +59,25 @@ Across the completed initial diagnostics and these two live runs, measured decod
 - Detail pages contain related job links; use verified current-page identity rather than the first matching link.
 - Remaining work: company logo extraction, work-type normalization, pagination, training-ad filtering, and refresh signals.
 
-## Indeed
+## Indeed — initial blocking
 
 - UK search returned HTTP 403 in both attempts through the supplied proxy.
 - Saved response contains “Additional Verification Required”, “Please enable JavaScript to complete the security check”, and Cloudflare managed-challenge markup.
 - Chrome-impersonated HTTP alone did not provide access in these attempts. No job content or removal evidence was obtained.
-- **Next experiment:** one bounded browser-based public-page request using the same permitted proxy, logging all requests and limiting bandwidth. Observe whether normal JavaScript execution yields a page or remains blocked; do not use accounts or CAPTCHA-solving services.
+- These findings led to bounded browser experiments described below; no accounts or CAPTCHA-solving services were used.
+
+## Indeed — verified access and integration
+
+- Replaced the synchronous diagnostic with asynchronous Playwright and durable request-start/completion logs. Requests aborted locally are recorded separately; redirects and unfinished attempts are accounted for.
+- Oxylabs' documentation confirms per-request rotation and `-sessid-<alphanumeric>` for sticky sessions: https://developers.oxylabs.io/proxies/residential-proxies/session-control. The browser derives this parameter from environment-provided credentials; it uses the same endpoint/account and keeps cookies only in memory.
+- Legacy headless rendering and sticky IP alone remained blocked. Chromium with a normal native Chrome user-agent token, automation compatibility flags, and ordinary JavaScript execution reached public search content. Homepage warmup and omitting an unnecessary first-page `start=0` parameter produced a working Linux-container run.
+- Direct `viewjob` navigation encountered an anonymous authentication gate. Public search exposes a complete selected job pane; selecting another listing with `vjk` supplies its full description without an account. The pane's company links identify its `fromjk` ID, which must agree with the requested job and its per-listing metadata.
+- A cookie/user-agent handoff from the browser to lightweight HTTP remained blocked, so Indeed retains the browser session. Browser resources are included in request totals; blocked assets and locally skipped resources are distinguished.
+- The first successful container run stored Rolls-Royce's Software & Control Systems Engineers role and Leidos' Software Engineer role, both in Bristol. Full descriptions measured 3,227 and 10,811 characters. Leidos displayed £61,500–£78,800 per year.
+- A subsequent sample exposed Standard Life's Lead Platform Engineer in Birmingham, £70,000–£80,000 annually. Its 1,960×400 company banner is not a logo. The actual square logo URL is explicitly declared in branding JSON; parsing that field avoids downloading the image and fixes a missing-logo extraction case.
+- A verified all-board run brought the database to 3 Indeed, 7 LinkedIn and 6 Reed rows. The next discovery-only run retained all 16 rows with zero lifecycle transitions and no scheduled detail requests. Exports, hashes, source counts and request accounting were checked against Postgres and logs.
+- Access is still subject to IP reputation/challenges. Transient tunnel/connection failures receive one fresh browser session retry; persistent blocks retain good data and report partial coverage. Default HTTP-first source order preserves their coverage if Indeed exhausts the shared budget.
+- Chromium's system dependencies and binaries are packaged in a digest-pinned, multi-architecture Playwright Docker image. Builds exclude `.env`, assessment text, raw captures and local environments. No host Chromium installation is needed for `make crawl`.
 
 ## Environment and open inputs
 
@@ -72,11 +85,11 @@ Across the completed initial diagnostics and these two live runs, measured decod
 - Dependencies are pinned in `pyproject.toml` and `uv.lock`.
 - Proxy credentials are in ignored local `.env`, loaded into environment configuration; `.env.example` contains placeholders.
 - The version-1 lifecycle fixture was subsequently supplied and saved at `tests/fixtures/lifecycle.json`. It uses discovery/detail/removal observations, an explicit observation clock, exact expected row sets, prior-run hash references, and a second idempotent application of every run. Its URLs are synthetic and must never be fetched.
-- A browser-based Indeed experiment was attempted after the HTTP probes, but a local filesystem permission error interrupted page capture, cleanup, and final request accounting. The HTTP totals above exclude this interrupted experiment. The browser helper needs recovery and verification before drawing access conclusions.
+- The first native browser experiment was interrupted by a filesystem permission error. Subsequent asynchronous diagnostics and the verified Docker integration supersede that attempt; its incomplete traffic remains excluded from the historical HTTP totals above.
 
 ## Next implementation decisions
 
-1. Run the bounded Indeed browser experiment; keep LinkedIn/Reed on lightweight HTTP unless later evidence requires a fallback.
+1. Broaden field-level accuracy review now that all three integrations have produced real listings.
 2. Broaden field-by-field review and source-layout regression samples for the working LinkedIn/Reed parsers.
 3. Add measured cross-board matching to the stable per-listing canonical IDs.
-4. Expand discovery only after accuracy checks, using the existing refresh policy and request/time budgets to measure efficiency.
+4. Reduce browser asset traffic and expand discovery only after accuracy checks, using measured request/time/bandwidth budgets.

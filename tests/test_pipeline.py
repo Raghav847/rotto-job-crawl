@@ -103,6 +103,15 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertIsNone(stored_rows(self.connection)["reed:57336545"]["removed_at"])
 
+    def test_inline_endpoint_error_does_not_authorize_job_removal(self):
+        self.crawl(FakeFetcher([self.discovery, self.detail]))
+        self.clock_patch.return_value = CLOCK + timedelta(hours=25)
+        unknown = FetchResult(REED, 404, "Endpoint unavailable", error_type="InlineEndpointFailure")
+        fetcher = FakeFetcher([self.discovery, unknown])
+        self.crawl(fetcher)
+        self.assertEqual(len(fetcher.calls), 2)
+        self.assertIsNone(stored_rows(self.connection)["reed:57336545"]["removed_at"])
+
 
 if __name__ == "__main__":
     unittest.main()

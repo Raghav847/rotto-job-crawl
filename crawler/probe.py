@@ -28,6 +28,9 @@ def now():
 
 
 def detail_urls(source, soup, base):
+    if source == "indeed":
+        from crawler.parsers import discover
+        return [candidate.url for candidate in discover(source, str(soup), base)[0]]
     urls = []
     for tag in soup.select("a[href]"):
         url = urljoin(base, tag["href"])

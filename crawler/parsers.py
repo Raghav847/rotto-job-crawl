@@ -56,6 +56,13 @@ def clean_url(source, url):
 def discover(source, text, base):
     soup = BeautifulSoup(text, "html.parser")
     found = {}
+    if source == "indeed":
+        for link in soup.select("a[data-jk]"):
+            identity = link.get("data-jk", "")
+            if re.fullmatch(r"[\w-]+", identity):
+                found.setdefault(identity, Candidate(identity, f"https://uk.indeed.com/viewjob?jk={identity}"))
+        if found:
+            return list(found.values()), None
     for link in soup.select("a[href]"):
         try:
             url = clean_url(source, urljoin(base, link["href"]))
@@ -211,9 +218,17 @@ def is_uk_workplace(posting, location, description):
     return bool(workplace & uk or visible_uk)
 
 
-def expired_page(source, text):
+def expired_page(source, text, expected_id=None):
     soup = BeautifulSoup(text, "html.parser")
-    for node in soup.select(".jobs-similar-jobs, [data-qa='similar-jobs-container'], .show-more-less-html__markup, [data-qa='job-description'], #jobDescriptionText"):
+    if source == "indeed" and soup.select_one("[data-testid='viewjob-main-content']"):
+        from crawler.indeed import cards, pane_identity
+        identity = pane_identity(soup.select_one("[data-testid='viewjob-main-content']"))
+        if expected_id and identity != expected_id:
+            return False
+        selected = [card for card in cards(soup) if str(card.get("jobkey")) == identity]
+        if len(selected) == 1 and selected[0].get("expired") is True:
+            return True
+    for node in soup.select(".jobs-similar-jobs, [data-qa='similar-jobs-container'], .show-more-less-html__markup, [data-qa='job-description'], #jobDescriptionText, .simple-job-description-html"):
         node.decompose()
     selectors = ".topcard__flavor--closed, [data-qa='job-expired-message'], .jobsearch-JobExpired, .closed-job, .alert"
     messages = [node.get_text(" ", strip=True) for node in soup.select(selectors)]
@@ -222,9 +237,12 @@ def expired_page(source, text):
                for message in messages)
 
 
-def parse_detail(source, text, requested_url, observed_at, previous_posted_at=None):
+def parse_detail(source, text, requested_url, observed_at, previous_posted_at=None, rendered_metadata=None):
     identity = source_id(source, requested_url)
     soup = BeautifulSoup(text, "html.parser")
+    if source == "indeed" and soup.select_one("[data-testid='viewjob-main-content']"):
+        from crawler.indeed import parse_embedded
+        return parse_embedded(text, observed_at, identity, previous_posted_at, rendered_metadata)
     canonical = soup.select_one("link[rel='canonical']")
     url = clean_url(source, requested_url)
     if canonical and canonical.get("href"):

@@ -52,6 +52,7 @@ class FetchResult:
     text: str
     blocked_reason: str | None = None
     error_type: str | None = None
+    rendered_metadata: dict | None = None
 
     @property
     def usable(self):
@@ -76,11 +77,23 @@ class Fetcher:
         self.blocked_by_source = Counter()
         self.session = requests.Session(impersonate="chrome", proxy=proxy_url())
         self.last_request_at = None
+        self.indeed_browser = None
 
     def close(self):
+        self.finish_source("indeed")
         self.session.close()
 
+    def finish_source(self, source):
+        if source == "indeed" and self.indeed_browser:
+            self.indeed_browser.close()
+            self.indeed_browser = None
+
     def fetch(self, source, kind, url):
+        if source == "indeed" and os.environ.get("INDEED_FETCH_MODE", "browser") == "browser":
+            if self.indeed_browser is None:
+                from crawler.browser_transport import IndeedBrowser
+                self.indeed_browser = IndeedBrowser(self)
+            return self.indeed_browser.fetch(kind, url)
         domain = {"indeed": "indeed.com", "linkedin": "linkedin.com", "reed": "reed.co.uk"}[source]
         for redirect in range(4):
             parsed = urlsplit(url)

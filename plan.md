@@ -34,7 +34,7 @@ Prioritize a working integration for every board, extraction accuracy, lifecycle
 
 **Acceptance:** a documented access path and accurate full-description extraction example for each board, or a concrete blocker with logs and a next experiment. Keep probes small; do not start broad crawling before this gate.
 
-**Initial findings:** see `access-findings.md`. LinkedIn and Reed discovery/detail pages were accessible in small HTTP probes; Indeed returned a managed JavaScript challenge. The lifecycle fixture is now available. The browser experiment encountered a local filesystem permission error and needs recovery and verification.
+**Findings:** see `access-findings.md`. All three integrations have now produced real listings. Indeed access required Chromium, sticky proxy sessions, normal browser identity, homepage warmup and public embedded job panes. The repaired asynchronous diagnostic has durable logs, and the Docker runtime avoids the earlier native-browser filesystem failure. The supplied lifecycle fixture is integrated.
 
 ## Phase 2 — Persistence contract and offline lifecycle tests
 
@@ -87,7 +87,7 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 
 - [x] Separate HTTP fetching, source parsing, reconciliation, and export/reporting into understandable modules. Source adapters reuse the same infrastructure; deduplication remains a separate upcoming module.
 - [x] Log every HTTP request attempt, including retries and redirects. Record source, time, URL, status/error, duration, received bytes, retry index, and block classification without credentials.
-- [ ] Recover browser diagnostics with durable request logging before using them in the production pipeline.
+- [x] Repair browser diagnostics with durable request-start/completion logs and failure-safe cleanup; integrate browser request accounting into live reports.
 - [x] Detect challenge pages, including HTTP 200 responses that contain bot protection instead of listings. Do not count these as successful extraction or removal evidence.
 - [x] Implement timeouts, bounded retries, backoff with jitter, sequential rate-limited requests, and stopping the affected source after a block.
 - [x] Persist successful observations so reruns skip fresh details and resume missing work safely. Use idempotent writes rather than a wipe-and-reload workflow.
@@ -99,9 +99,9 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 
 ## Phase 4 — Accurate end-to-end adapters for all three boards
 
-**Working subset:** LinkedIn and Reed now persist live UK listings via `make crawl`, including full descriptions and source-served company logo URLs. Indeed is attempted and reported as blocked; its detail parser is unverified. Full three-board acceptance remains open.
+**Working coverage:** LinkedIn, Reed and Indeed persist live UK listings via `make crawl`. Indeed verifies the selected pane ID against source metadata, extracts only the full description, uses per-listing UK country evidence, and separates company logos from banners. Larger field-by-field sampling remains necessary before scaling.
 
-- [ ] Implement the smallest complete discovery-to-detail-to-database path for each board, using Phase 1 findings.
+- [x] Implement a verified small discovery-to-detail-to-database path for each board, using observed source behaviour.
 - [ ] Extract board-owned source IDs and stable public URLs; avoid using titles or URL slugs as listing identity.
 - [ ] Validate UK workplaces or explicit UK remote eligibility. Use source evidence, not the domain or the word “remote” alone; skip ambiguous eligibility initially.
 - [ ] Extract title, company, source-served hiring-company logo URL, original location text, work type, salary range/period, posting date, and full plain-text description.
@@ -115,6 +115,8 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 **Acceptance:** one `make crawl` produces independently verifiable live UK listings from all three sources, with full descriptions and every required field present.
 
 **Verified live milestone:** a nine-request bounded run inserted three LinkedIn and two Reed listings and excluded a Reed training course; Indeed returned HTTP 403. A three-request discovery-only rerun preserved all five first-seen timestamps and content hashes, advanced last seen, and returned zero lifecycle counts. Both runs exported real stored rows, and the export verifier checked table equality, hashes, source counts, and request-log accounting.
+
+**Three-board milestone:** the Docker/Chromium pipeline added Indeed listings, including Rolls-Royce and Leidos roles in Bristol. A subsequent all-board run accepted one new listing per board. The current database/export contains 3 Indeed, 7 LinkedIn and 6 Reed listings. A discovery-only rerun retained all 16 rows with zero new/changed/removed counts and no scheduled detail fetches. Public fixture checks and the expanded parser/browser/pipeline tests run inside the Python 3.12 container. Browser requests remain comparatively expensive; cache/discovery optimization is an upcoming efficiency task.
 
 ## Phase 5 — Incremental refresh and careful deduplication
 
@@ -161,9 +163,9 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 
 ## Immediate next work session
 
-1. Recover and verify the interrupted Indeed browser experiment, with durable request logging, and complete three-board live coverage.
-2. Broaden field-by-field review and parser samples, then implement measured cross-board deduplication.
-3. Investigate reliable source change signals and add richer pagination/resumption bookkeeping as discovery scales.
-4. Expand queries and paging within measured accuracy and bandwidth limits, then complete clean-machine setup verification and submission materials.
+1. Broaden field-by-field review and parser samples, then implement measured cross-board deduplication.
+2. Reduce Indeed browser asset traffic and investigate reliable source change signals and richer resumption bookkeeping.
+3. Expand queries and paging within measured accuracy and bandwidth limits.
+4. Finish fresh-database clean-machine checks, cost assumptions, documentation and submission materials.
 
 Keep evidence of access experiments and unresolved decisions as implementation progresses. Finalize source-specific details from observed behaviour rather than assumptions.
