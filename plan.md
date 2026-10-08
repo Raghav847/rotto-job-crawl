@@ -125,13 +125,16 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 - [x] Without a verified full-content change signal, refresh details every 24 hours by default, oldest due first within run budgets, including stored listings absent from current search results.
 - [x] A failed refresh must remain due; never advance successful-refresh timestamps on failed or blocked requests.
 - [x] Revalidate liveness during detail refreshes; require explicit expiry or two matching source not-found responses. Never remove based on search absence.
-- [ ] Generate plausible duplicate candidates using normalized company/title/location and other available evidence; use description similarity and distinctive attributes to confirm matches.
-- [ ] Choose conservative matching thresholds; account for generic titles, staffing agencies, different locations, and multiple similar vacancies.
-- [ ] Persist stable canonical IDs across reruns. Define how edited listings and new evidence affect existing groups without indiscriminate churn or weak transitive merges.
-- [ ] Evaluate labeled positive and negative pairs, including duplicates the algorithm initially misses. Avoid all-pairs comparisons as the dataset grows.
-- [ ] Define and document `duplicates_linked` precisely, since the brief does not specify whether it is a run-transition count or a current grouping count. Follow the supplied fixture if it clarifies this.
+- [x] Generate candidates using indexed normalized employer/role/location buckets; compare requisitions, title compatibility, and distinctive description tokens/shingles.
+- [x] Choose conservative thresholds and reject conflicting references, workplaces/postcodes, named teams, seniority, specializations and explicit working hours. Reject unknown employers and unverified recruiter/employer aliases.
+- [x] Preserve the oldest established canonical ID on merges, keep identity through wording-only edits, and split an edited listing on clear contradictions. Complete-link checks reject weak transitive bridges.
+- [x] Evaluate 16 labelled synthetic positive/negative pairs and a manually reviewed live Leidos copy across Indeed/LinkedIn. Indexed candidates avoid global all-pairs comparisons.
+- [ ] Expand the labelled corpus with more independently reviewed real pairs and measure precision/recall beyond the small current sample.
+- [x] Define `duplicates_linked` as stored copies beyond one per canonical group; lifecycle counts remain per-run and exclude canonical-only changes.
 
 **Acceptance:** unchanged listings avoid unnecessary details, a detail-only edit is detected when refresh becomes due, failed refreshes do not hide changes, and true duplicates share a stable canonical ID without merging distinct vacancies.
+
+**Dedupe milestone:** shared persistence now builds versioned matching features and hashed match evidence transactionally. Legacy rows are indexed once without detail requests. The targeted Leidos crawl added four LinkedIn rows and linked the Bristol Software Engineer copy to its existing Indeed canonical ID; differing Leidos locations/roles stayed separate. The database contains 20 live source listings and 19 canonical jobs, with one duplicate link. A discovery-only replay returned zero lifecycle counts and retained the grouping. All 55 tests and the public fixture pass; synthetic pair precision/recall are perfect on this small labelled set, not a general accuracy claim.
 
 ## Phase 6 — Scale coverage within the budget
 
@@ -163,7 +166,7 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 
 ## Immediate next work session
 
-1. Broaden field-by-field review and parser samples, then implement measured cross-board deduplication.
+1. Broaden field-level review and the independently labelled real dedupe corpus.
 2. Reduce Indeed browser asset traffic and investigate reliable source change signals and richer resumption bookkeeping.
 3. Expand queries and paging within measured accuracy and bandwidth limits.
 4. Finish fresh-database clean-machine checks, cost assumptions, documentation and submission materials.

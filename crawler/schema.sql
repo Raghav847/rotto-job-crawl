@@ -39,3 +39,32 @@ CREATE TABLE IF NOT EXISTS listing_exclusions (
     reason text NOT NULL,
     PRIMARY KEY (source, source_job_id)
 );
+
+CREATE TABLE IF NOT EXISTS canonical_groups (
+    id text PRIMARY KEY,
+    created_order bigserial UNIQUE NOT NULL,
+    created_at timestamptz NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dedupe_features (
+    job_id text PRIMARY KEY REFERENCES jobs(id),
+    content_hash text NOT NULL,
+    rule_version integer NOT NULL,
+    company_key text,
+    role_family text NOT NULL,
+    location_key text NOT NULL,
+    profile jsonb NOT NULL
+);
+CREATE INDEX IF NOT EXISTS dedupe_candidate_idx ON dedupe_features(company_key, role_family, location_key);
+
+CREATE TABLE IF NOT EXISTS dedupe_evidence (
+    left_id text NOT NULL REFERENCES jobs(id),
+    right_id text NOT NULL REFERENCES jobs(id),
+    left_hash text NOT NULL,
+    right_hash text NOT NULL,
+    rule_version integer NOT NULL,
+    reason text NOT NULL,
+    scores jsonb NOT NULL,
+    PRIMARY KEY (left_id, right_id),
+    CHECK (left_id < right_id)
+);

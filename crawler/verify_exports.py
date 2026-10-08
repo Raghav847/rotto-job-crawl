@@ -42,6 +42,12 @@ def main():
             live[row["source"]] += 1
     if live != report["jobs_by_source"]:
         raise AssertionError("Live source counts differ from exported rows")
+    canonical_live = {row["canonical_job_id"] for row in exported.values() if row["removed_at"] is None}
+    groups = Counter(row["canonical_job_id"] for row in exported.values())
+    if len(canonical_live) != report["canonical_jobs_live"]:
+        raise AssertionError("Canonical live count differs from exported rows")
+    if sum(size - 1 for size in groups.values()) != report["duplicates_linked"]:
+        raise AssertionError("Duplicate link count differs from exported rows")
     print(f"Verified {len(exported)} exported rows, hashes, live counts, and {len(requests)} logged requests")
 
 

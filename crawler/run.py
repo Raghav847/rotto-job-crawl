@@ -11,6 +11,7 @@ from uuid import uuid4
 from dotenv import load_dotenv
 
 from crawler.database import connect, database_url, initialize
+from crawler.dedupe import backfill
 from crawler.exporting import export_run, json_value
 from crawler.fetching import CrawlBudgetExceeded, Fetcher
 from crawler.models import Observation
@@ -234,6 +235,7 @@ def main():
             initialize(connection)
             if not connection.execute("SELECT pg_try_advisory_lock(74201932) AS locked").fetchone()["locked"]:
                 raise RuntimeError("Another live crawl is already running")
+            report["dedupe_rows_indexed"] = backfill(connection)
             try:
                 for source in sources:
                     report["source_runs"][source] = {"status": "running"}

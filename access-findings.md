@@ -79,6 +79,17 @@ Across the completed initial diagnostics and these two live runs, measured decod
 - Access is still subject to IP reputation/challenges. Transient tunnel/connection failures receive one fresh browser session retry; persistent blocks retain good data and report partial coverage. Default HTTP-first source order preserves their coverage if Indeed exhausts the shared budget.
 - Chromium's system dependencies and binaries are packaged in a digest-pinned, multi-architecture Playwright Docker image. Builds exclude `.env`, assessment text, raw captures and local environments. No host Chromium installation is needed for `make crawl`.
 
+## Cross-board dedupe milestone
+
+- Initial 16 rows had no clear cross-board duplicates; same-employer rows were kept separate where roles or workplaces differed.
+- A six-request LinkedIn crawl for “Leidos software engineer” fetched five details, accepted four and preserved existing data after one extraction failure.
+- `linkedin:4473672005` (Software Engineer, Leidos, Bristol) matches `indeed:9da46040ed4098e1` (Software Engineer, Leidos, Bristol BS16). The distinctive role descriptions agree after normalization; title, employer and workplace evidence agree. Both now use the original Indeed canonical ID.
+- Other Leidos full-stack/lead listings in Farnborough/Ham remain separate under the conservative rules. Same-board duplicates require explicit requisition evidence; matching template text alone is insufficient.
+- Current totals: 20 live source listings, 19 canonical jobs, one linked duplicate. A one-request discovery-only rerun retained these totals and returned zero lifecycle transitions.
+- Features are versioned and indexed by employer, role family and workplace. Evidence stores source content hashes and matching reasons/scores. No runtime model calls are used.
+- A small labelled synthetic corpus contains 16 pairs (six positive, ten negative), including paraphrases, salary/hours conflicts, different requisitions, teams and workplaces, and shared boilerplate. All labels pass, alongside transactional grouping, replay, split, removal/reappearance and weak-transitivity checks.
+- Broader real-pair sampling is still needed; the current test-set result does not estimate general precision/recall.
+
 ## Environment and open inputs
 
 - Available locally: Python 3.14.2, `uv`, Docker 28.3.0, and Docker Compose 2.38.1. Docker daemon responded successfully.
@@ -91,5 +102,5 @@ Across the completed initial diagnostics and these two live runs, measured decod
 
 1. Broaden field-level accuracy review now that all three integrations have produced real listings.
 2. Broaden field-by-field review and source-layout regression samples for the working LinkedIn/Reed parsers.
-3. Add measured cross-board matching to the stable per-listing canonical IDs.
+3. Expand the independently reviewed real-pair corpus and refine matching only when evidence warrants it.
 4. Reduce browser asset traffic and expand discovery only after accuracy checks, using measured request/time/bandwidth budgets.

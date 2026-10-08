@@ -5,6 +5,7 @@ from uuid import NAMESPACE_URL, uuid5
 from psycopg import sql
 
 from crawler.models import CONTENT_FIELDS, Observation, job_id
+from crawler.dedupe import deduplicate_listing
 
 
 def reconcile(connection, observation: Observation):
@@ -61,6 +62,8 @@ def reconcile(connection, observation: Observation):
                 (observed_at, job_id(observation.source, source_id), observed_at),
             )
             counts["jobs_removed"] += result.rowcount
+        for listing in observation.details:
+            deduplicate_listing(connection, listing.id)
     return counts
 
 

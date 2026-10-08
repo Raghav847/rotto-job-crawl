@@ -1,29 +1,11 @@
 {
-  "started_at": "2026-10-08T01:48:56.834824+00:00",
+  "started_at": "2026-10-08T05:39:01.427797+00:00",
   "source_runs": {
     "linkedin": {
       "status": "limited",
       "discovered": 60,
       "details_fetched": 0,
-      "details_skipped_fresh": 7,
-      "accepted": 0,
-      "rejected": {},
-      "failures": 0
-    },
-    "reed": {
-      "status": "limited",
-      "discovered": 26,
-      "details_fetched": 0,
-      "details_skipped_fresh": 6,
-      "accepted": 0,
-      "rejected": {},
-      "failures": 0
-    },
-    "indeed": {
-      "status": "limited",
-      "discovered": 16,
-      "details_fetched": 0,
-      "details_skipped_fresh": 2,
+      "details_skipped_fresh": 4,
       "accepted": 0,
       "rejected": {},
       "failures": 0
@@ -35,35 +17,30 @@
     "refresh_hours": 24
   },
   "queries": [
-    "software engineer"
+    "Leidos software engineer"
   ],
   "status": "partial",
+  "dedupe_rows_indexed": 0,
   "jobs_new": 0,
   "jobs_changed": 0,
   "jobs_removed": 0,
-  "requests_total": 65,
-  "requests_blocked": 2,
+  "requests_total": 1,
+  "requests_blocked": 0,
   "requests_by_status": {
-    "200": 26,
-    "307": 1,
-    "403": 1,
-    "error:net::ERR_BLOCKED_BY_RESPONSE": 1,
-    "error:Interrupted": 34,
-    "401": 1,
-    "302": 1
+    "200": 1
   },
-  "response_body_bytes": 3929310,
+  "response_body_bytes": 279253,
   "estimated_cost_usd": null,
   "cost_per_1000_pages_usd": null,
   "cost_basis": "Decoded response bodies; proxy-billed overhead/compression not measured. Null cost means no USD/GB rate supplied.",
-  "finished_at": "2026-10-08T01:49:13.766018+00:00",
-  "request_log": "output/runs/20261008T014856Z-e56a3baf/requests.jsonl",
+  "finished_at": "2026-10-08T05:39:03.425861+00:00",
+  "request_log": "output/runs/20261008T053901Z-eefa5841/requests.jsonl",
   "jobs_by_source": {
     "indeed": 3,
-    "linkedin": 7,
+    "linkedin": 11,
     "reed": 6
   },
-  "canonical_jobs_live": 16,
-  "duplicates_linked": 0,
-  "jobs_export_sha256": "d05f67d6d7c8ed3ffcb881f4121e5c7b0c411fb8685a2fa034d0f0533b5c16de"
+  "canonical_jobs_live": 19,
+  "duplicates_linked": 1,
+  "jobs_export_sha256": "a202894e7933824aa9e4b50f456ac0387adb6b1cca521ca1b40c68640e35facd"
 }
