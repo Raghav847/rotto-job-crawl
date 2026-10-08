@@ -1,0 +1,64 @@
+{
+  "started_at": "2026-10-07T23:58:04.219989+00:00",
+  "source_runs": {
+    "indeed": {
+      "status": "blocked",
+      "discovered": 0,
+      "details_fetched": 0,
+      "details_skipped_fresh": 0,
+      "accepted": 0,
+      "rejected": {},
+      "failures": 1
+    },
+    "linkedin": {
+      "status": "limited",
+      "discovered": 60,
+      "details_fetched": 0,
+      "details_skipped_fresh": 3,
+      "accepted": 0,
+      "rejected": {},
+      "failures": 0
+    },
+    "reed": {
+      "status": "limited",
+      "discovered": 26,
+      "details_fetched": 0,
+      "details_skipped_fresh": 2,
+      "accepted": 0,
+      "rejected": {},
+      "failures": 0
+    }
+  },
+  "limits": {
+    "pages": 1,
+    "details": 0,
+    "refresh_hours": 24
+  },
+  "queries": [
+    "software engineer"
+  ],
+  "status": "partial",
+  "jobs_new": 0,
+  "jobs_changed": 0,
+  "jobs_removed": 0,
+  "requests_total": 3,
+  "requests_blocked": 1,
+  "requests_by_status": {
+    "403": 1,
+    "200": 2
+  },
+  "response_body_bytes": 762094,
+  "estimated_cost_usd": null,
+  "cost_per_1000_pages_usd": null,
+  "cost_basis": "Decoded response bodies; proxy-billed overhead/compression not measured. Null cost means no USD/GB rate supplied.",
+  "finished_at": "2026-10-07T23:58:08.746825+00:00",
+  "request_log": "output/runs/20261007T235804Z-5a74836b/requests.jsonl",
+  "jobs_by_source": {
+    "indeed": 0,
+    "linkedin": 3,
+    "reed": 2
+  },
+  "canonical_jobs_live": 5,
+  "duplicates_linked": 0,
+  "jobs_export_sha256": "50e6ca220a0217a3c75e315270293ad9727e7e8f7635ab7f0c41e06db197cffd"
+}
