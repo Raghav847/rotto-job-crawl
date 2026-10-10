@@ -46,6 +46,14 @@ def reconcile(connection, observation: Observation):
                 "WHERE listing_state.last_detail_refresh_at < EXCLUDED.last_detail_refresh_at",
                 (listing.id, observed_at),
             )
+            if listing.matching_evidence is not None:
+                evidence = listing.matching_evidence
+                connection.execute(
+                    "INSERT INTO listing_match_evidence (job_id, content_hash, kind, issuer, reference) VALUES (%s, %s, %s, %s, %s) "
+                    "ON CONFLICT (job_id) DO UPDATE SET content_hash = EXCLUDED.content_hash, kind = EXCLUDED.kind, "
+                    "issuer = EXCLUDED.issuer, reference = EXCLUDED.reference",
+                    (listing.id, listing.content_hash, evidence["kind"], evidence["issuer"], evidence["reference"]),
+                )
 
         live_ids = observation.discovered | {listing.content["source_job_id"] for listing in observation.details}
         for source_id in sorted(live_ids):

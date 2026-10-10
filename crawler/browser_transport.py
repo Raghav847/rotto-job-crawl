@@ -11,6 +11,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from playwright.async_api import Error, async_playwright
 
 from crawler.browser_probe import RENDERED_METADATA, RequestLedger, browser_proxy
+from crawler.browser_policy import skip_reason
 from crawler.fetching import CrawlBudgetExceeded, FetchResult, classify, proxy_url
 
 
@@ -34,6 +35,9 @@ class IndeedBrowser:
         self.budget_reached = False
         self.closed = False
         self.warmed = False
+        self.policy = os.environ.get("INDEED_RESOURCE_POLICY", "lean")
+        if self.policy not in ("lean", "baseline"):
+            raise ValueError("INDEED_RESOURCE_POLICY must be lean or baseline")
 
     def spawn(self, coroutine):
         task = asyncio.create_task(coroutine)
@@ -54,26 +58,25 @@ class IndeedBrowser:
                 pass
 
     def requested(self, request):
-        self.ledger.begin(request)
+        redirected = request.redirected_from is not None
+        self.ledger.begin(request, network_attempted=redirected)
         self.ledger.entries[request]["kind"] = self.current_kind
-        if self.remaining_requests() < 0:
+        if redirected and self.remaining_requests() < 0:
             self.spawn(self.stop())
 
     async def routed(self, route):
         request = route.request
-        self.ledger.begin(request)
-        host = urlsplit(request.url).hostname or ""
-        if request.resource_type in ("image", "font", "media") or request.resource_type == "stylesheet" and host.endswith(".indeed.com"):
-            self.ledger.skip(request, "unneeded_media_or_stylesheet")
+        self.ledger.begin(request, network_attempted=False)
+        reason = skip_reason(request.url, request.resource_type, self.policy)
+        if reason:
+            self.ledger.skip(request, reason)
             await route.abort()
-        elif self.budget_reached or self.remaining_requests() < 0 or time.monotonic() >= self.owner.deadline:
+        elif self.budget_reached or self.remaining_requests() <= 0 or time.monotonic() >= self.owner.deadline:
             self.ledger.skip(request, "crawl_budget")
             await route.abort()
-            await self.stop()
-        elif request.resource_type == "document" and host == "secure.indeed.com" and urlsplit(request.url).path.startswith("/auth"):
-            self.ledger.skip(request, "account_or_anonymous_auth_gate")
-            await route.abort()
+            self.budget_reached = True
         else:
+            self.ledger.dispatch(request)
             await route.continue_()
 
     def responded(self, response):
@@ -133,8 +136,6 @@ class IndeedBrowser:
                 pass
         self.current_kind = kind
         target = url if kind == "discovery" else self.inline_url(url)
-        if kind == "discovery":
-            self.last_search_url = url
         self.latest_status = None
         try:
             remaining = max(1, self.owner.deadline - time.monotonic())
@@ -147,20 +148,25 @@ class IndeedBrowser:
                 if time.monotonic() >= self.owner.deadline:
                     raise CrawlBudgetExceeded("Configured time budget reached")
                 await self.page.wait_for_timeout(500)
-            await self.page.wait_for_timeout(750)
+            await self.page.wait_for_timeout(250 if self.policy == "lean" else 750)
             markup = await self.page.content()
             metadata = await self.page.evaluate(RENDERED_METADATA)
             markup = metadata.pop("html")
-            if metadata.get("logo_present") and not metadata.get("company_logo_url"):
+            if self.policy == "baseline" and metadata.get("logo_present") and not metadata.get("company_logo_url"):
                 await self.page.wait_for_timeout(1500)
                 metadata = await self.page.evaluate(RENDERED_METADATA)
                 markup = metadata.pop("html")
             block = classify(self.latest_status, markup)
+            final = urlsplit(self.page.url)
+            if final.hostname == "secure.indeed.com" and final.path.startswith("/auth"):
+                block = "logged_out_pagination_or_auth_gate"
+            if kind == "discovery" and not block and self.latest_status == 200 and final.hostname == "uk.indeed.com":
+                self.last_search_url = self.page.url
             if self.owner.save_pages:
                 sample = f"{len(self.ledger.entries):04d}-{kind}"
                 (self.folder / (sample + ".html")).write_text(markup)
                 (self.folder / (sample + "-metadata.json")).write_text(json.dumps(metadata, indent=2) + "\n")
-            if block:
+            if block and block != "logged_out_pagination_or_auth_gate":
                 self.owner.blocked_by_source["indeed"] += 1
             error = "InlineEndpointFailure" if kind != "discovery" and self.latest_status in (404, 410) else None
             return FetchResult(self.page.url, self.latest_status, markup, block, error, metadata)
@@ -205,6 +211,8 @@ class IndeedBrowser:
             self.runner.run(self.shutdown())
         finally:
             summary = self.ledger.finalize()
+            summary["resource_policy"] = self.policy
+            summary["navigation_requests"] = sum(record["resource_type"] == "document" for record in self.ledger.network_entries)
             records = self.ledger.network_entries
             with (self.owner.folder / "requests.jsonl").open("a") as log:
                 for record in records:

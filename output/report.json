@@ -1,46 +1,111 @@
 {
-  "started_at": "2026-10-08T05:39:01.427797+00:00",
+  "started_at": "2026-10-09T20:32:13.478593+00:00",
   "source_runs": {
     "linkedin": {
       "status": "limited",
-      "discovered": 60,
-      "details_fetched": 0,
-      "details_skipped_fresh": 4,
-      "accepted": 0,
+      "discovered": 0,
+      "details_fetched": 1,
+      "details_skipped_fresh": 0,
+      "accepted": 1,
       "rejected": {},
-      "failures": 0
+      "failures": 0,
+      "pages_fetched": 0,
+      "overlapping_sightings": 0,
+      "query_runs": [],
+      "removal_confirmations": 0,
+      "discovery_artefacts_skipped": 0,
+      "artefact_queue_entries_suppressed": 0,
+      "pending_details_loaded": 1,
+      "pending_details_remaining": 148,
+      "explicit_refresh_ids": [
+        "linkedin:4457381152"
+      ],
+      "discovery_mode": "never",
+      "discovery_skipped": true,
+      "discovery_skip_reason": "explicit_queue_drain",
+      "resumed_cycle": false,
+      "cycle_id": null,
+      "jobs_new": 0,
+      "jobs_changed": 1,
+      "jobs_removed": 0
     }
   },
   "limits": {
     "pages": 1,
-    "details": 0,
-    "refresh_hours": 24
+    "details": 1,
+    "refresh_hours": 24,
+    "discovery": "never"
   },
   "queries": [
-    "Leidos software engineer"
+    "software engineer"
+  ],
+  "locations": [
+    "United Kingdom"
   ],
   "status": "partial",
+  "indeed_resource_policy": "lean",
+  "force_detail_refresh": false,
+  "refresh_ids": [
+    "linkedin:4457381152"
+  ],
   "dedupe_rows_indexed": 0,
   "jobs_new": 0,
-  "jobs_changed": 0,
+  "jobs_changed": 1,
   "jobs_removed": 0,
   "requests_total": 1,
   "requests_blocked": 0,
   "requests_by_status": {
     "200": 1
   },
-  "response_body_bytes": 279253,
+  "response_body_bytes": 311521,
+  "requests_by_source": {
+    "linkedin": 1
+  },
+  "response_bytes_by_source": {
+    "linkedin": 311521
+  },
+  "blocked_requests_by_source": {
+    "linkedin": 0
+  },
+  "proxy_cost_per_gb_usd": null,
+  "cost_rate_supplied": false,
   "estimated_cost_usd": null,
   "cost_per_1000_pages_usd": null,
   "cost_basis": "Decoded response bodies; proxy-billed overhead/compression not measured. Null cost means no USD/GB rate supplied.",
-  "finished_at": "2026-10-08T05:39:03.425861+00:00",
-  "request_log": "output/runs/20261008T053901Z-eefa5841/requests.jsonl",
-  "jobs_by_source": {
-    "indeed": 3,
-    "linkedin": 11,
-    "reed": 6
+  "finished_at": "2026-10-09T20:32:15.649496+00:00",
+  "efficiency": {
+    "runtime_seconds": 2.170903,
+    "accepted_detail_observations": 1,
+    "new_listings": 0,
+    "listing_page_fetches": 1,
+    "accepted_per_request": 1.0,
+    "new_per_request": 0.0,
+    "decoded_bytes_per_accepted": 311521.0,
+    "new_per_decoded_gb": 0.0,
+    "accepted_per_minute": 27.63826849932954,
+    "cost_per_1000_listing_fetches_usd": null,
+    "cost_per_1000_request_attempts_usd": null,
+    "traffic_basis": "Decoded response bodies, not proxy-billed bytes; listing fetches exclude warmup/resources but their traffic is included",
+    "by_source": {
+      "linkedin": {
+        "accepted_detail_observations": 1,
+        "new_listings": 0,
+        "requests": 1,
+        "decoded_bytes": 311521,
+        "accepted_per_request": 1.0,
+        "decoded_bytes_per_accepted": 311521.0,
+        "block_rate": 0.0,
+        "discovery_skipped": true
+      }
+    }
   },
-  "canonical_jobs_live": 19,
-  "duplicates_linked": 1,
-  "jobs_export_sha256": "a202894e7933824aa9e4b50f456ac0387adb6b1cca521ca1b40c68640e35facd"
+  "request_log": "output/runs/20261009T203213Z-0c9001ed/requests.jsonl",
+  "jobs_by_source": {
+    "indeed": 49,
+    "linkedin": 37,
+    "reed": 47
+  },
+  "canonical_jobs_live": 131,
+  "duplicates_linked": 2,
+  "jobs_export_sha256": "34c4141fb9122dabea1fb7ed78ab0ee65d1a648722b36f5eb52e568ce8135e5c"
 }

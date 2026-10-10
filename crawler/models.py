@@ -33,6 +33,7 @@ def job_id(source, source_job_id):
 @dataclass(frozen=True)
 class Listing:
     content: dict
+    matching_evidence: dict | None = None
 
     @classmethod
     def from_dict(cls, raw):
@@ -63,7 +64,16 @@ class Listing:
                 raise ValueError("Salary minimum exceeds maximum")
         if values["posted_at"] is not None:
             values["posted_at"] = timestamp(values["posted_at"])
-        return cls(values)
+        evidence = raw.get("matching_evidence")
+        if evidence is not None:
+            if not isinstance(evidence, dict) or evidence.get("kind") != "jsonld_employer_reference":
+                raise ValueError("Invalid matching evidence")
+            if any(not isinstance(evidence.get(key), str) or not evidence[key].strip()
+                   or len(evidence[key]) > 512 or any(ord(character) < 32 for character in evidence[key])
+                   for key in ("issuer", "reference")):
+                raise ValueError("Invalid employer-reference evidence")
+            evidence = {key: evidence[key] for key in ("kind", "issuer", "reference")}
+        return cls(values, evidence)
 
     @property
     def id(self):

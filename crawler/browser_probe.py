@@ -72,17 +72,22 @@ class RequestLedger:
         self.stream.write(json.dumps({"event": event, **self.entries[request]}) + "\n")
         self.stream.flush()
 
-    def begin(self, request):
+    def begin(self, request, *, network_attempted=True):
         if request in self.entries:
             return
         self.entries[request] = {
             "request_id": len(self.entries) + 1, "at": now(), "source": "indeed",
             "kind": "browser", "url": request.url, "resource_type": request.resource_type,
-            "network_attempted": True, "status": None, "error_type": None,
+            "network_attempted": network_attempted, "status": None, "error_type": None,
             "blocked_reason": None, "response_bytes": 0, "finished": False,
         }
         self.started[request] = time.monotonic()
         self.write(request, "started")
+
+    def dispatch(self, request):
+        self.begin(request, network_attempted=False)
+        self.entries[request]["network_attempted"] = True
+        self.write(request, "dispatched")
 
     def skip(self, request, reason):
         self.begin(request)

@@ -5,3 +5,7 @@ __pycache__/
 *.pyc
 output/diagnostics/
 output/runs/
+output/reviews/
+/submission-checklist.md
+/AGENTS.md
+/agents.md

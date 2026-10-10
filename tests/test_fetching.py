@@ -61,6 +61,18 @@ class FetchingTests(unittest.TestCase):
             self.fetcher.fetch("reed", "detail", URL)
         self.assertEqual(self.session.get.call_count, 1)
 
+    def test_interrupted_request_has_durable_start_and_counted_completion(self):
+        def interrupt(*args, **kwargs):
+            starts = [json.loads(line) for line in (self.folder / "request-events.jsonl").read_text().splitlines()]
+            self.assertEqual(starts[0]["event"], "request_start")
+            raise KeyboardInterrupt()
+        self.session.get.side_effect = interrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.fetcher.fetch("reed", "discovery", URL)
+        record = json.loads((self.folder / "requests.jsonl").read_text())
+        self.assertEqual(record["error_type"], "Interrupted")
+        self.assertEqual(self.fetcher.statistics()["requests_by_status"], {"error:Interrupted": 1})
+
 
 if __name__ == "__main__":
     unittest.main()

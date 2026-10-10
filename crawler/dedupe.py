@@ -1,6 +1,8 @@
 """Explainable vacancy matching and incremental, stable canonical grouping."""
 
 import math
+import hashlib
+import json
 import re
 import unicodedata
 from collections import Counter
@@ -11,7 +13,7 @@ from uuid import NAMESPACE_URL, uuid5
 from psycopg.types.json import Jsonb
 
 
-RULE_VERSION = 1
+RULE_VERSION = 2
 LEGAL_SUFFIXES = {"ltd", "limited", "plc", "llc", "inc", "incorporated", "corp", "corporation", "co", "llp"}
 UNKNOWN_COMPANIES = {"confidential", "companyconfidential", "privateadvertiser", "undisclosed", "unknown"}
 STOP_WORDS = set("""a an and are as at be been being by can could for from has have how in into is it its
@@ -104,7 +106,46 @@ def role_text(description):
     return normalize(" ".join(paragraphs))
 
 
-def profile(row):
+def legal_employer(description):
+    # Only an explicit applicant-employment declaration, not customers/partners/clients.
+    match = re.search(r"\byou(?:['’]ll| will)\s+be employed by\s+([^,\n.;]{3,160})", description, re.I)
+    if not match:
+        return None
+    name = match[1].strip()
+    if not re.search(r"\b(?:Limited|Ltd|PLC|LLP|LLC|Inc|Corporation)\s*$", name, re.I):
+        return None
+    return company_key(name)
+
+
+def structured_reference_key(row, evidence, legal):
+    if not evidence or evidence.get("kind") != "jsonld_employer_reference":
+        return None
+    issuer = company_key(evidence.get("issuer"))
+    if not issuer or issuer != company_key(row.get("company")):
+        return None
+    reference = evidence["reference"]
+    if reference == str(row.get("source_job_id")):
+        return None
+    # Verified public Tesco recruitment-channel suffixes. No generic suffix stripping
+    # or company aliasing: both the issuer and explicit legal-employer declaration bind it.
+    channels = {"tesco": "TescoUK", "tescotechnology": "Technology"}
+    if row["source"] == "linkedin" and legal == "tescostores" and issuer in channels:
+        match = re.fullmatch(r"([0-9]{4,})" + re.escape(channels[issuer]), reference, re.I)
+        if match:
+            return "tesco_recruitment|" + legal + "|" + match[1]
+    return "employer|" + issuer + "|" + reference
+
+
+def trusted_recruitment_brands(left, right):
+    return (left.get("legal_employer_key") == right.get("legal_employer_key") == "tescostores"
+            and {left["company_key"], right["company_key"]} <= {"tesco", "tescotechnology"})
+
+
+def profile(row, evidence=None):
+    if evidence is None:
+        evidence = row.get("matching_evidence")
+    legal = legal_employer(row["description"])
+    full_text = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", row["description"])).strip().casefold()
     title = normalize(row["title"])
     words = title.split()
     references = set()
@@ -128,6 +169,8 @@ def profile(row):
     postcode = re.search(r"\b([A-Z]{1,2}\d[A-Z\d]?)(?:\s*\d[A-Z]{2})?\b", row["location"], re.I)
     return {
         "id": row["id"], "source": row["source"], "company_key": company_key(row.get("company")),
+        "legal_employer_key": legal, "source_reference_key": structured_reference_key(row, evidence, legal),
+        "full_description_hash": hashlib.sha256(full_text.encode()).hexdigest(),
         "role_family": role_family(row["title"]), "location_key": location_key(row["location"]),
         "postcode": postcode[1].lower() if postcode else None,
         "title_tokens": title_tokens, "title_numbers": sorted(word for word in words if word.isdigit()),
@@ -149,11 +192,15 @@ def dice(left, right):
 
 
 def contradiction(left, right):
-    reference_match = bool(set(left["references"]) & set(right["references"]))
-    if left["company_key"] and right["company_key"] and left["company_key"] != right["company_key"]:
+    body_reference_match = bool(set(left["references"]) & set(right["references"]))
+    source_reference_match = bool(left.get("source_reference_key") and left.get("source_reference_key") == right.get("source_reference_key"))
+    reference_match = body_reference_match or source_reference_match
+    if left["company_key"] and right["company_key"] and left["company_key"] != right["company_key"] and not trusted_recruitment_brands(left, right):
         return "different_company"
-    if left["references"] and right["references"] and not reference_match:
+    if left["references"] and right["references"] and not body_reference_match:
         return "different_requisition"
+    if left.get("source_reference_key") and right.get("source_reference_key") and not source_reference_match:
+        return "different_source_requisition"
     if left["role_family"] != right["role_family"]:
         return "different_role_family"
     if left["location_key"] != right["location_key"] and not ({left["location_key"], right["location_key"]} & {"remote", "uk"}):
@@ -196,7 +243,21 @@ def compare(left, right):
     if not left["company_key"] or not right["company_key"]:
         return Decision(False, "unknown_company", {})
     title = dice(left["title_tokens"], right["title_tokens"])
+    source_reference = bool(left.get("source_reference_key") and left.get("source_reference_key") == right.get("source_reference_key"))
+    if left["company_key"] != right["company_key"]:
+        corroborated = (trusted_recruitment_brands(left, right) and source_reference
+                        and left["source"] == right["source"] == "linkedin"
+                        and left["source_reference_key"].startswith("tesco_recruitment|")
+                        and left["title_tokens"] == right["title_tokens"]
+                        and left["location_key"] == right["location_key"]
+                        and left["location_key"] not in ("remote", "uk")
+                        and left["full_description_hash"] == right["full_description_hash"]
+                        and min(left["description_length"], right["description_length"]) >= 600)
+        return Decision(bool(corroborated), "scoped_recruitment_channel" if corroborated else "unverified_employer_brand",
+                        {"title": round(title, 4)} if corroborated else {})
     references = set(left["references"]) & set(right["references"])
+    if source_reference and title >= 0.4:
+        return Decision(True, "structured_employer_reference", {"title": round(title, 4)})
     if references and title >= 0.4:
         return Decision(True, "employer_reference", {"title": round(title, 4)})
     if left["source"] == right["source"]:
@@ -251,18 +312,23 @@ def deduplicate_listing(connection, identity):
     row = connection.execute("SELECT * FROM jobs WHERE id = %s", (identity,)).fetchone()
     if not row:
         return
-    existing = connection.execute("SELECT content_hash, rule_version FROM dedupe_features WHERE job_id = %s", (identity,)).fetchone()
-    if existing and existing["content_hash"] == row["content_hash"] and existing["rule_version"] == RULE_VERSION:
+    raw_evidence = connection.execute("SELECT kind, issuer, reference FROM listing_match_evidence WHERE job_id = %s AND content_hash = %s",
+                                      (identity, row["content_hash"])).fetchone()
+    evidence_hash = hashlib.sha256(json.dumps(raw_evidence, sort_keys=True).encode()).hexdigest() if raw_evidence else ""
+    existing = connection.execute("SELECT content_hash, rule_version, evidence_hash FROM dedupe_features WHERE job_id = %s", (identity,)).fetchone()
+    if existing and existing["content_hash"] == row["content_hash"] and existing["rule_version"] == RULE_VERSION and existing["evidence_hash"] == evidence_hash:
         return
-    current = profile(row)
+    current = profile(row, raw_evidence)
     connection.execute("DELETE FROM dedupe_evidence WHERE left_id = %s OR right_id = %s", (identity, identity))
     register_group(connection, row["canonical_job_id"], row["first_seen_at"])
     connection.execute(
-        "INSERT INTO dedupe_features (job_id, content_hash, rule_version, company_key, role_family, location_key, profile) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (job_id) DO UPDATE SET "
+        "INSERT INTO dedupe_features (job_id, content_hash, rule_version, company_key, role_family, location_key, profile, legal_employer_key, evidence_hash) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (job_id) DO UPDATE SET "
         "content_hash = EXCLUDED.content_hash, rule_version = EXCLUDED.rule_version, company_key = EXCLUDED.company_key, "
-        "role_family = EXCLUDED.role_family, location_key = EXCLUDED.location_key, profile = EXCLUDED.profile",
-        (identity, row["content_hash"], RULE_VERSION, current["company_key"], current["role_family"], current["location_key"], Jsonb(current)),
+        "role_family = EXCLUDED.role_family, location_key = EXCLUDED.location_key, profile = EXCLUDED.profile, "
+        "legal_employer_key = EXCLUDED.legal_employer_key, evidence_hash = EXCLUDED.evidence_hash",
+        (identity, row["content_hash"], RULE_VERSION, current["company_key"], current["role_family"], current["location_key"],
+         Jsonb(current), current["legal_employer_key"], evidence_hash),
     )
     # Keep established identity on wording-only edits, but detach clear contradictions.
     peers = [(peer, features) for peer, features in group_members(connection, row["canonical_job_id"]) if peer["id"] != identity]
@@ -277,9 +343,10 @@ def deduplicate_listing(connection, identity):
         return
     candidates = connection.execute(
         "SELECT j.id, j.canonical_job_id, j.removed_at, f.profile FROM dedupe_features f JOIN jobs j ON j.id = f.job_id "
-        "WHERE f.company_key = %s AND f.role_family = %s AND f.rule_version = %s AND j.id <> %s "
+        "WHERE (f.company_key = %s OR (f.legal_employer_key = %s AND %s::text IS NOT NULL)) AND f.role_family = %s AND f.rule_version = %s AND j.id <> %s "
         "AND (f.location_key = %s OR f.location_key IN ('remote', 'uk') OR %s IN ('remote', 'uk')) ORDER BY j.id",
-        (current["company_key"], current["role_family"], RULE_VERSION, identity, current["location_key"], current["location_key"]),
+        (current["company_key"], current["legal_employer_key"], current["legal_employer_key"], current["role_family"], RULE_VERSION,
+         identity, current["location_key"], current["location_key"]),
     ).fetchall()
     groups = {row["canonical_job_id"]}
     for candidate in candidates:

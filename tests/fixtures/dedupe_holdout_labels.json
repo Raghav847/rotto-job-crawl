@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "scope": "Post-rule-change independently inspected unused pairs; negative-only holdout does not measure recall, and ambiguous candidates are not scored",
+  "pairs": [
+    {"name": "capital_staff_backend_vs_staff_ml", "left": "indeed:f7d15c5d19b9b578", "right": "indeed:345023d7eb6fa3ee", "duplicate": false, "reason": "Same employer/place/staff level, but multi-team Java backend strategy versus Python ML/AI engineering strategy"},
+    {"name": "capital_staff_backend_vs_manager", "left": "indeed:f7d15c5d19b9b578", "right": "indeed:13abf4d64f8f2cdc", "duplicate": false, "reason": "Staff individual technical strategy versus people/engineering management"},
+    {"name": "capital_staff_backend_vs_services_lead", "left": "indeed:f7d15c5d19b9b578", "right": "indeed:1cb9991f8f8dfafd", "duplicate": false, "reason": "Staff cross-domain technical strategy versus lead squad/backend/mobile services delivery, different advertised levels and scopes"},
+    {"name": "leidos_lead_vs_senior_same_office", "left": "linkedin:4409627202", "right": "linkedin:4422380547", "duplicate": false, "reason": "Lead technical direction versus senior individual contributor and different structured employer requisitions at the same Farnborough workplace"},
+    {"name": "optima_net_vs_roku_java", "left": "indeed:a572708b3abc6ef7", "right": "linkedin:4466068414", "duplicate": false, "reason": "Named occupational-health employer/.NET portal role in Warrington versus Roku Java/AWS enterprise platform in Manchester"},
+    {"name": "jetbrains_iam_vs_norton_ai", "left": "linkedin:4461165550", "right": "reed:57364884", "duplicate": false, "reason": "Named different employers, Kotlin identity platform versus legal-services applied AI product engineering despite common London location"},
+    {"name": "thought_machine_vs_capital_backend", "left": "linkedin:4455524107", "right": "indeed:f7d15c5d19b9b578", "duplicate": false, "reason": "Distinct named employers/products and engineer II cloud banking microservices versus staff-level backend technical strategy"},
+    {"name": "jpm_java_cross_board_ambiguous", "left": "indeed:757a85d63473258a", "right": "linkedin:4475071823", "duplicate": null, "reason": "Shared company/place and partial technical prose, but different lead versus engineer III titles; no independently confirmed common source requisition yet"}
+  ]
+}

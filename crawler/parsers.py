@@ -4,7 +4,7 @@ import html
 import json
 import re
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from urllib.parse import parse_qs, urljoin, urlsplit
 
@@ -25,6 +25,7 @@ class IneligibleListing(ValueError):
 class Candidate:
     source_job_id: str
     url: str
+    posted_at: datetime | None = None
 
 
 def source_id(source, url):
@@ -53,31 +54,69 @@ def clean_url(source, url):
     return f"https://{parsed.hostname}{parsed.path.rstrip('/')}"
 
 
-def discover(source, text, base):
+def discovery_artefacts(soup, result_ids):
+    """Hidden inactive/preview nodes absent from a successfully decoded result set."""
+    if not result_ids:
+        return set()
+    return {link["data-jk"] for link in soup.select("a[data-jk]")
+            if link["data-jk"] not in result_ids and re.fullmatch(r"[\w-]+", link["data-jk"])
+            and any(node.get("aria-hidden") == "true" for node in [link, *link.parents] if hasattr(node, "get"))}
+
+
+def discover(source, text, base, *, rejected_ids=None, verified_ids=None):
     soup = BeautifulSoup(text, "html.parser")
     found = {}
     if source == "indeed":
+        from crawler.indeed import cards
+        dates = {}
+        results = cards(soup)
+        result_ids = {str(card["jobkey"]) for card in results if isinstance(card, dict) and card.get("jobkey") is not None
+                      and re.fullmatch(r"[\w-]+", str(card["jobkey"]))}
+        artefacts = discovery_artefacts(soup, result_ids)
+        if rejected_ids is not None:
+            rejected_ids.update(artefacts)
+        if verified_ids is not None:
+            verified_ids.update(result_ids)
+        for card in results:
+            if not isinstance(card, dict):
+                continue
+            published = card.get("pubDate")
+            if isinstance(published, (int, float)) and not isinstance(published, bool) and published > 0:
+                try:
+                    dates[str(card.get("jobkey"))] = datetime.fromtimestamp(published / 1000, timezone.utc)
+                except (ValueError, OverflowError, OSError):
+                    pass
         for link in soup.select("a[data-jk]"):
             identity = link.get("data-jk", "")
-            if re.fullmatch(r"[\w-]+", identity):
-                found.setdefault(identity, Candidate(identity, f"https://uk.indeed.com/viewjob?jk={identity}"))
+            if identity not in artefacts and re.fullmatch(r"[\w-]+", identity):
+                found.setdefault(identity, Candidate(identity, f"https://uk.indeed.com/viewjob?jk={identity}", dates.get(identity)))
         if found:
-            return list(found.values()), None
+            return list(found.values()), discovery_next_url(source, soup, base)
     for link in soup.select("a[href]"):
         try:
             url = clean_url(source, urljoin(base, link["href"]))
             identity = source_id(source, url)
         except ExtractionError:
             continue
-        found.setdefault(identity, Candidate(identity, url))
-    next_url = None
-    if source == "reed":
-        link = soup.select_one("link[rel='next'], [data-qa='rel-page-next']")
-        if link and link.get("href"):
-            next_url = urljoin(base, link["href"])
-            if urlsplit(next_url).hostname != urlsplit(base).hostname:
-                next_url = None
-    return list(found.values()), next_url
+        if source != "indeed" or identity not in artefacts:
+            found.setdefault(identity, Candidate(identity, url))
+    return list(found.values()), discovery_next_url(source, soup, base)
+
+
+def discovery_next_url(source, soup, base):
+    selector = {"reed": "link[rel='next'], [data-qa='rel-page-next'], a[aria-label='Next page']",
+                "indeed": "a[data-testid='pagination-page-next'], a[aria-label='Next page'], a[aria-label='Next Page']",
+                "linkedin": "a[rel='next'], link[rel='next']"}[source]
+    link = soup.select_one(selector)
+    if not link or not link.get("href"):
+        return None
+    url = urljoin(base, link["href"])
+    parsed, origin = urlsplit(url), urlsplit(base)
+    if parsed.scheme != "https" or parsed.username or parsed.hostname != origin.hostname:
+        return None
+    if source in ("reed", "indeed") and not parsed.path.startswith("/jobs"):
+        return None
+    return url
 
 
 def job_postings(soup):
@@ -115,10 +154,18 @@ def plain_description(value):
     for node in soup.find_all(["p", "div", "li", "h1", "h2", "h3", "h4", "br"]):
         node.insert_before("\n")
         node.insert_after("\n")
-    lines = [re.sub(r"\s+", " ", line).strip() for line in soup.get_text().splitlines() if line.strip()]
+    lines = [re.sub(r"\s+", " ", line).strip() for line in soup.get_text(" ").splitlines() if line.strip()]
+    lines = [re.sub(r"\s+([,;:!?])", r"\1", line) for line in lines]
+    lines = [re.sub(r"\s+\.(?=\s|$)", ".", line) for line in lines]
     while lines and lines[0] in ("Full job description", "Job Description", "Job description", "Description"):
         lines.pop(0)
-    return "\n".join(line for line in lines if line)
+    description = "\n".join(line for line in lines if line)
+    # Some employers paste a whole careers page into the listing description. Keep
+    # application guidance, but exclude an explicitly labelled multi-vacancy footer.
+    marker = re.search(r"(?im)^\s*(?:More technology opportunities|Similar roles worth exploring|Related vacancies|Other open positions)\s*$", description)
+    if marker and len(re.findall(r"\bView role\b", description[marker.start():], re.I)) >= 2:
+        description = description[:marker.start()].rstrip()
+    return description
 
 
 def work_type(value):
@@ -133,17 +180,30 @@ def work_type(value):
     return None
 
 
+def gbp_text(text):
+    """Recognize explicit GBP prefix/suffix amounts without assuming a currency."""
+    amount = r"\d[\d,]*(?:\.\d+)?\s*[kK]?"
+    text = re.sub(r"\bGBP\s*(?=\d)", "£", text, flags=re.I)
+    return re.sub(r"(?<![\w£$€])(" + amount + r"(?:\s*(?:-|–|—|\bto\b)\s*" + amount + r")?)\s+GBP\b",
+                  r"£\1", text, flags=re.I)
+
+
 def salary(text, structured):
     period = None
     if text:
+        text = gbp_text(text)
         lower = text.lower()
-        for pattern, unit in ((r"annum|annual|year", "year"), (r"\bday\b|daily", "day"),
-                              (r"\bhour\b|hourly", "hour")):
+        for pattern, unit in ((r"\b(?:per\s+annum|per\s+year|a\s+year|yearly)\b|/\s*(?:yr|year)\b|\bannual(?:ly)?\b(?!\s+(?:leave|holidays?))", "year"),
+                              (r"\b(?:per\s+day|a\s+day|daily)\b|/\s*day\b", "day"),
+                              (r"\b(?:per\s+hour|an?\s+hour|hourly)\b|/\s*(?:hr|hour)\b", "hour")):
             if re.search(pattern, lower):
                 period = unit
                 break
         amount = r"(\d[\d,]*(?:\.\d+)?)\s*([kK]?)"
-        range_match = re.search(r"£\s*" + amount + r"\s*(?:-|–|—|\bto\b)\s*£?\s*" + amount, text)
+        frequency = r"(?:\s*(?:/\s*(?:yr|year|hr|hour|day)|(?:per|an?)\s+(?:annum|year|hour|day)))?"
+        range_match = re.search(r"£\s*" + amount + frequency + r"\s*(?:-|–|—|\bto\b)\s*£?\s*" + amount, text, re.I)
+        if not range_match:
+            range_match = re.search(r"\bbetween\s+£\s*" + amount + frequency + r"\s+and\s+£?\s*" + amount, text, re.I)
         if range_match:
             low, low_suffix, high, high_suffix = range_match.groups()
             low = Decimal(low.replace(",", ""))
@@ -174,6 +234,56 @@ def salary(text, structured):
     return None, None, None
 
 
+def description_salary(description):
+    """Only explicit pay statements; never company assets, shares or benefit amounts."""
+    label = re.compile(r"\b(?:annual\s+(?:base\s+)?salary|base\s+salary|salary(?:\s+and\s+benefits)?|pay\s+range|base\s+pay|remuneration)\s*[:\-]?", re.I)
+    candidates = []
+    grouped_k = re.compile(r"(£?\s*\d{1,3}(?:,\d{3})+(?:\.\d+)?)\s*[kK]\b")
+    pending_heading = False
+
+    def collect(candidate):
+        candidate = gbp_text(candidate)
+        if explicit_amount(candidate):
+            value = salary(candidate, None)
+            # Keep literal interpretation unless a separate explicit statement corroborates
+            # the variant without redundant thousands. Never impose a guessed salary cap.
+            alternate = salary(grouped_k.sub(r"\1", candidate), None) if grouped_k.search(candidate) else None
+            candidates.append((value, alternate))
+
+    def explicit_amount(candidate):
+        amount = re.search(r"£\s*\d[\d,]*(?:\.\d+)?\s*[kK]?", candidate)
+        if not amount or amount.start() > 80:
+            return False
+        before, after = candidate[:amount.start()], candidate[amount.end():]
+        if re.search(r"shares|equity|assets|turnover|revenue|pension|bonus|training|course", before, re.I):
+            return False
+        if re.match(r"\s*(?:(?:of|in|free|annual)\s+)*(?:shares|equity|bonus|billion|million|pension)\b", after, re.I):
+            return False
+        return True
+    for line in description.splitlines():
+        match = label.search(line)
+        if match:
+            # Isolate pay wording from surrounding prose and experience requirements.
+            candidate = line[match.start():]
+            collect(candidate)
+            pending_heading = bool(re.fullmatch(r"\s*(?:base\s+salary|salary|pay\s+range|remuneration)\s*[:\-]?\s*", line, re.I))
+        elif pending_heading:
+            collect(line)
+            pending_heading = False
+    candidates = [(value, alternate) for value, alternate in candidates if value[0] is not None or value[1] is not None]
+    clean_bounds = {(value[0], value[1]) for value, alternate in candidates if alternate is None}
+    candidates = [alternate if alternate is not None and (alternate[0], alternate[1]) in clean_bounds
+                  and (value[0], value[1]) not in clean_bounds else value for value, alternate in candidates]
+    if not candidates:
+        return None, None, None
+    bounds = {(minimum, maximum) for minimum, maximum, _ in candidates}
+    if len(bounds) != 1:
+        return None, None, None
+    periods = {period for _, _, period in candidates if period is not None}
+    minimum, maximum = next(iter(bounds))
+    return minimum, maximum, next(iter(periods)) if len(periods) == 1 else None
+
+
 def countries(value):
     if isinstance(value, list):
         return set().union(*(countries(item) for item in value))
@@ -186,7 +296,18 @@ def countries(value):
     return {str(value).strip().lower()} if value else set()
 
 
+def non_uk_relocation(title, description):
+    destinations = r"Australia|New Zealand|Canada|United States|USA|United Arab Emirates|Singapore|Qatar|Saudi Arabia|South Africa"
+    country = re.search(r"\b(" + destinations + r")\b", title or "", re.I)
+    if not country:
+        return False
+    return bool(re.search(r"\b(?:must|need to|required to|expected to)\b[^.!?\n]{0,100}\b(?:move|relocate)\s+to\s+" + re.escape(country[1]) + r"\b",
+                          description, re.I))
+
+
 def is_uk_workplace(posting, location, description):
+    if non_uk_relocation(posting.get("title"), description):
+        return False
     uk = {"gb", "uk", "united kingdom", "great britain"}
     workplace = countries(posting.get("jobLocation"))
     visible_uk = bool(re.search(r"\b(?:United Kingdom|UK|England|Scotland|Wales|Northern Ireland)\b", location, re.I))
@@ -221,12 +342,15 @@ def is_uk_workplace(posting, location, description):
 def expired_page(source, text, expected_id=None):
     soup = BeautifulSoup(text, "html.parser")
     if source == "indeed" and soup.select_one("[data-testid='viewjob-main-content']"):
-        from crawler.indeed import cards, pane_identity
+        from crawler.indeed import cards, pane_identity, selected_view_model
         identity = pane_identity(soup.select_one("[data-testid='viewjob-main-content']"))
         if expected_id and identity != expected_id:
             return False
         selected = [card for card in cards(soup) if str(card.get("jobkey")) == identity]
         if len(selected) == 1 and selected[0].get("expired") is True:
+            return True
+        view = selected_view_model(soup, identity)
+        if view and view.get("jobInfoWrapperModel", {}).get("jobInfoModel", {}).get("showExpiredHeader") is True:
             return True
     for node in soup.select(".jobs-similar-jobs, [data-qa='similar-jobs-container'], .show-more-less-html__markup, [data-qa='job-description'], #jobDescriptionText, .simple-job-description-html"):
         node.decompose()
@@ -238,6 +362,7 @@ def expired_page(source, text, expected_id=None):
 
 
 def parse_detail(source, text, requested_url, observed_at, previous_posted_at=None, rendered_metadata=None):
+    from crawler.matching_evidence import structured_reference
     identity = source_id(source, requested_url)
     soup = BeautifulSoup(text, "html.parser")
     if source == "indeed" and soup.select_one("[data-testid='viewjob-main-content']"):
@@ -319,6 +444,8 @@ def parse_detail(source, text, requested_url, observed_at, previous_posted_at=No
     if isinstance(posted, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", posted):
         posted += "T00:00:00Z"
     minimum, maximum, period = salary(salary_text, posting.get("baseSalary"))
+    if minimum is None and maximum is None:
+        minimum, maximum, period = description_salary(description)
     if isinstance(logo, dict):
         logo = logo.get("url") or logo.get("contentUrl")
     if logo:
@@ -331,6 +458,7 @@ def parse_detail(source, text, requested_url, observed_at, previous_posted_at=No
         "work_type": work_type(employment or posting.get("employmentType")),
         "salary_min": minimum, "salary_max": maximum, "salary_period": period,
         "posted_at": posted, "description": description,
+        "matching_evidence": structured_reference(source, identity, company, organization, posting.get("identifier")),
     })
 
 

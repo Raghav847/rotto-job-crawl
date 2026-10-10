@@ -1,4 +1,5 @@
 import unittest
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -81,6 +82,27 @@ class IndeedParserTests(unittest.TestCase):
         page = page.replace("</head>", '<script>const branding={"logoAltText":"Example Engineering logo","logoUrl":"https://cdn.example.org/square-logo.png"};</script></head>')
         row = parse_detail("indeed", page, URL, CLOCK, rendered_metadata={"source_job_id": "selected456", "logo_present": True}).content
         self.assertEqual(row["company_logo_url"], "https://cdn.example.org/square-logo.png")
+
+    def test_selected_job_not_in_search_results_uses_bound_view_payload(self):
+        soup = BeautifulSoup(self.page, "html.parser")
+        soup.select_one("#mosaic-data").decompose()
+        payload = {"jobKey": "selected456", "jobCountry": "GB", "country": "US", "loggedIn": False,
+                   "datePublished": None, "jobLocation": "Manchester",
+                   "jobInfoWrapperModel": {"jobInfoModel": {
+                       "jobInfoHeaderModel": {"formattedLocation": "Manchester", "companyName": "Example Engineering", "remoteLocation": False},
+                       "showExpiredHeader": False}}}
+        script = soup.new_tag("script")
+        script.string = "const view = " + json.dumps(payload) + ";"
+        soup.head.append(script)
+        previous = datetime(2026, 10, 2, tzinfo=timezone.utc)
+        row = parse_detail("indeed", str(soup), URL, CLOCK, previous).content
+        self.assertEqual(row["source_job_id"], "selected456")
+        self.assertEqual(row["location"], "Manchester")
+        self.assertEqual(row["posted_at"], previous)
+        with self.assertRaises(IneligibleListing):
+            parse_detail("indeed", str(soup).replace('"jobCountry": "GB"', '"jobCountry": "US"'), URL, CLOCK)
+        with self.assertRaises(ExtractionError):
+            parse_detail("indeed", str(soup).replace('"jobKey": "selected456"', '"jobKey": "other123"'), URL, CLOCK)
 
 
 if __name__ == "__main__":

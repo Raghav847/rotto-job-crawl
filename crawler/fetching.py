@@ -116,6 +116,9 @@ class Fetcher:
                     "response_bytes": 0, "retry_index": retry, "redirect_index": redirect,
                 }
                 response = None
+                # Starts survive an abrupt process kill; completions also enter requests.jsonl.
+                with (self.folder / "request-events.jsonl").open("a") as log:
+                    log.write(json.dumps({"event": "request_start", **record}) + "\n")
                 try:
                     response = self.session.get(url, timeout=min(25, max(1, self.deadline - started)), allow_redirects=False)
                     block = classify(response.status_code, response.text)
@@ -126,10 +129,16 @@ class Fetcher:
                 except requests.RequestsError as exc:
                     record["error_type"] = type(exc).__name__
                     result = FetchResult(url, None, "", error_type=record["error_type"])
-                record["duration_seconds"] = round(time.monotonic() - started, 3)
-                self.records.append(record)
-                with (self.folder / "requests.jsonl").open("a") as log:
-                    log.write(json.dumps(record) + "\n")
+                except BaseException:
+                    record["error_type"] = "Interrupted"
+                    raise
+                finally:
+                    record["duration_seconds"] = round(time.monotonic() - started, 3)
+                    self.records.append(record)
+                    with (self.folder / "requests.jsonl").open("a") as log:
+                        log.write(json.dumps(record) + "\n")
+                    with (self.folder / "request-events.jsonl").open("a") as log:
+                        log.write(json.dumps({"event": "request_end", **record}) + "\n")
                 if self.save_pages and response is not None:
                     (self.folder / f"{len(self.records):04d}-{source}-{kind}.html").write_text(response.text)
                 if record["blocked_reason"]:
@@ -156,10 +165,19 @@ class Fetcher:
         rate = self.cost_rate
         proxied = bool(proxy_url())
         cost = (size / 1_000_000_000 * rate) if rate is not None and proxied else (0.0 if not proxied else None)
+        by_source = Counter(record["source"] for record in self.records)
+        bytes_by_source = Counter()
+        blocked_by_source = Counter()
+        for record in self.records:
+            bytes_by_source[record["source"]] += record["response_bytes"]
+            blocked_by_source[record["source"]] += bool(record["blocked_reason"])
         return {
             "requests_total": len(self.records),
             "requests_blocked": sum(bool(record["blocked_reason"]) for record in self.records),
             "requests_by_status": dict(statuses), "response_body_bytes": size,
+            "requests_by_source": dict(by_source), "response_bytes_by_source": dict(bytes_by_source),
+            "blocked_requests_by_source": dict(blocked_by_source),
+            "proxy_cost_per_gb_usd": rate, "cost_rate_supplied": rate is not None,
             "estimated_cost_usd": cost,
             "cost_per_1000_pages_usd": cost / len(self.records) * 1000 if cost is not None and self.records else None,
             "cost_basis": "Decoded response bodies; proxy-billed overhead/compression not measured. Null cost means no USD/GB rate supplied.",

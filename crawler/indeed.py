@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
-from crawler.models import Listing
+from crawler.models import Listing, timestamp
 
 
 def provider_data(soup):
@@ -28,6 +28,26 @@ def provider_data(soup):
 def cards(soup):
     data = provider_data(soup).get("mosaic-provider-jobcards", {})
     return data.get("metaData", {}).get("mosaicProviderJobCardsModel", {}).get("results", [])
+
+
+def selected_view_model(soup, identity):
+    """Find the public selected-job payload; never infer its ID from result order."""
+    decoder = json.JSONDecoder()
+    for script in soup.find_all("script"):
+        text = script.get_text()
+        for match in re.finditer(r'"jobInfoWrapperModel"\s*:', text):
+            position = match.start()
+            for _ in range(20):
+                position = text.rfind("{", 0, position)
+                if position < 0:
+                    break
+                try:
+                    value, length = decoder.raw_decode(text[position:])
+                except ValueError:
+                    continue
+                if position + length > match.start() and isinstance(value, dict) and str(value.get("jobKey")) == identity:
+                    return value
+    return None
 
 
 def pane_identity(pane):
@@ -66,7 +86,7 @@ def declared_logo(soup, label):
 
 def parse_embedded(text, observed_at, expected_id=None, previous_posted_at=None, rendered_metadata=None):
     # Local imports avoid a module cycle with the generic parser's Indeed dispatch.
-    from crawler.parsers import ExtractionError, IneligibleListing, is_uk_workplace, plain_description, salary, text_of, work_type
+    from crawler.parsers import ExtractionError, IneligibleListing, description_salary, is_uk_workplace, plain_description, salary, text_of, work_type
 
     soup = BeautifulSoup(text, "html.parser")
     pane = soup.select_one("[data-testid='viewjob-main-content']")
@@ -76,6 +96,17 @@ def parse_embedded(text, observed_at, expected_id=None, previous_posted_at=None,
     if not identity or expected_id and identity != expected_id:
         raise ExtractionError("Indeed pane does not identify the requested listing")
     matches = [card for card in cards(soup) if str(card.get("jobkey")) == identity]
+    view = selected_view_model(soup, identity)
+    if view and view.get("loggedIn") is True:
+        raise ExtractionError("Indeed payload is not a logged-out observation")
+    if not matches and view:
+        info = view.get("jobInfoWrapperModel", {}).get("jobInfoModel", {})
+        header = info.get("jobInfoHeaderModel", {})
+        matches = [{"jobkey": identity, "country": view.get("jobCountry"),
+                    "formattedLocation": header.get("formattedLocation") or view.get("jobLocation"),
+                    "jobLocationCity": header.get("formattedLocation") or view.get("jobLocation"),
+                    "company": header.get("companyName"), "remoteLocation": header.get("remoteLocation"),
+                    "expired": info.get("showExpiredHeader") is True}]
     if len(matches) != 1:
         raise ExtractionError("Missing unambiguous metadata for the selected Indeed job")
     card = matches[0]
@@ -90,7 +121,7 @@ def parse_embedded(text, observed_at, expected_id=None, previous_posted_at=None,
                          if parse_qs(urlsplit(link["href"]).query).get("fromjk") == [identity]), None)
     company = company_link.get_text(" ", strip=True) if company_link else card.get("company")
     location = card.get("formattedLocation")
-    posting = {"jobLocation": {"address": {"addressCountry": card.get("country"),
+    posting = {"title": title, "jobLocation": {"address": {"addressCountry": card.get("country"),
                                            "addressLocality": card.get("jobLocationCity")}}}
     if card.get("remoteLocation"):
         posting["jobLocationType"] = "TELECOMMUTE"
@@ -98,14 +129,21 @@ def parse_embedded(text, observed_at, expected_id=None, previous_posted_at=None,
         raise IneligibleListing("uk_eligibility_unconfirmed")
     summary = text_of(pane, "[data-testid='structured-job-summary']")
     minimum, maximum, period = salary(summary, None)
+    if minimum is None and maximum is None:
+        minimum, maximum, period = description_salary(description)
     posted = None
-    if isinstance(card.get("pubDate"), (int, float)):
+    if isinstance(card.get("pubDate"), (int, float)) and card["pubDate"] > 0:
         posted = datetime.fromtimestamp(card["pubDate"] / 1000, timezone.utc)
+    elif view and view.get("datePublished"):
+        posted = timestamp(view["datePublished"])
     else:
         relative = str(card.get("formattedRelativeTime", ""))
         match = re.search(r"(\d+)\+?\s*(day|hour|minute)s?\s+ago", relative, re.I)
         if match:
             posted = previous_posted_at or observed_at - timedelta(seconds=int(match[1]) * {"day": 86400, "hour": 3600, "minute": 60}[match[2].lower()])
+        else:
+            # The same identified listing can omit its date in the public detail pane.
+            posted = previous_posted_at
     logo = None
     logo_keys = {"logoUrl", "companyLogoUrl", "featuredCompanyLogo", "featuredCompanyLogoUrl", "featuredCompanyIconUrl"}
 

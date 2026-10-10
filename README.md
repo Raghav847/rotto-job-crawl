@@ -1,12 +1,10 @@
 # Rotto UK job crawler
 
-Python crawler for Indeed UK, LinkedIn and Reed. Requires Docker Compose and Make;
-the pinned Docker image supplies Python, dependencies, Chromium and system libraries.
+Python crawler for public, logged-out Indeed UK, LinkedIn and Reed listings. Requires Docker Compose and Make; the pinned image supplies Python and Chromium.
 
 ## Run
 
-Set `PROXY_URL` or `PROXY_HOST` / `PROXY_PORT` / `PROXY_USERNAME` / `PROXY_PASSWORD`
-in the environment or ignored `.env`; credentials are never embedded in code.
+Supply `PROXY_URL` or `PROXY_HOST` / `PROXY_PORT` / `PROXY_USERNAME` / `PROXY_PASSWORD` through the environment or ignored `.env` (see `.env.example`).
 
 ```sh
 docker compose up -d
@@ -15,52 +13,26 @@ make test
 FIXTURE_PATH=/path/to/file.json make test
 ```
 
-The first crawl builds the runtime. Postgres 17 uses a persistent volume, local port
-`55432` and database/user/password `rotto/rotto/rotto-local`; configure `POSTGRES_*`
-before initial setup. Tests use the built image offline, create fresh UUID-named
-databases, and drop only those databases. They check rows, hashes, counts and replay.
+`make crawl` builds the runtime and initializes schema. Postgres uses a persistent volume/local port `55432`; configure `POSTGRES_*` before first startup. Tests use the built image offline, check fixture rows/counts/replays in fresh UUID-named databases, and drop only those databases.
 
-## Access and accuracy
+## Access, extraction and coverage
 
-LinkedIn/Reed use Chrome-impersonated HTTP. Indeed uses Chromium with a sticky session
-on the supplied Oxylabs proxy, UK locale/timezone, normal Chrome user-agent token,
-automation compatibility flags and homepage warmup. Its public selected-job pane
-provides full details; `vjk` selects listings. No accounts, CAPTCHA interactions/solving
-services, other proxies or runtime LLM calls are used.
+LinkedIn/Reed use Chrome-impersonated HTTP. Indeed uses Chromium, sticky supplied proxy, UK locale/timezone, native Chrome token, automation compatibility and homepage warmup. Public `vjk` search panes provide details. HTTP-only/legacy headless/cookie handoff failed; direct `viewjob` and page two hit auth gates. No accounts, CAPTCHA solving, other proxies or runtime LLM calls.
 
-Indeed blocked HTTP, legacy headless rendering and browser-to-HTTP cookie handoff;
-direct `viewjob` requests hit an anonymous auth gate. Browser traffic is heavier,
-so HTTP sources run first. Images/fonts/media and bulky Indeed stylesheets are blocked.
-Logo URLs come from source markup/branding JSON; banners and images are not stored.
+Indeed's lean policy skips frontend/consent/telemetry and images/fonts/media, retaining security checks. Every dispatched request/redirect/retry is logged; local skips are not attempts. Logo URLs are never downloaded. Parsers bind IDs to actual details, require UK workplace/remote eligibility, reject explicit overseas relocation/training adverts, preserve source titles/locations, and extract plain-text main descriptions. Dedicated compensation overrides conflicting prose; missing fields/periods are not guessed. Exact dates override stable relative estimates; bound Indeed discovery dates survive pane omissions.
 
-Parsers verify IDs and UK eligibility, preserve source titles/locations, extract full
-plain-text descriptions and exclude Reed training adverts. Missing fields stay null.
-Contract/temporary takes precedence over hours; permanent alone does not imply full-time.
-Relative posting dates are estimated once; exact source dates take precedence.
+Defaults: software/data queries, two HTTP pages/one Indeed page, 20 details/source, two-second HTTP pacing, 300 requests/ten minutes. Configure `CRAWL_QUERIES`, `CRAWL_LOCATIONS`, `CRAWL_MAX_*`, `INDEED_MAX_PAGES`, `DETAIL_REFRESH_HOURS`. LinkedIn uses guest offsets; Reed follows next links. Repeated pages/loops stop; overlaps fetch once. `CRAWL_DISCOVERY=auto` drains sufficient backlog, `always` rechecks heads, `never` drains queued/due work.
 
-## Reconciliation and dedupe
+## Persistence, recovery and dedupe
 
-Transactional writes preserve first seen, advance sightings, hash content edits, and
-refresh details every 24 hours, including jobs absent from search. Failures remain due.
-Only explicit expiry or confirmed source not-found removes a row; search absence,
-incomplete runs and inline endpoint errors do not. Reappearance clears removal.
+Transactions preserve first seen, advance real sightings, hash content edits and refresh details every 24 hours—including search-absent jobs. Failures remain due. Pending IDs/dates/checkpoints survive interruption; observations/checkpoints and detail acknowledgements commit atomically. Cached work is not a sighting. `CRAWL_REFRESH_IDS=source:id,...` targets maintenance; `CRAWL_FORCE_REFRESH=1` bypasses freshness.
 
-Dedupe indexes employer/role/location buckets, then checks requisitions, title
-compatibility and distinctive descriptions after removing boilerplate. Conflicting
-workplaces, teams, references, seniority or specialization reject links. Complete-link
-checks prevent weak transitive merges. The oldest canonical ID survives merges;
-wording edits preserve identity, while clear contradictions split the edited row.
-Unknown employers and same-board copies without requisition evidence stay separate.
-Versioned features/evidence do not affect content hashes or lifecycle counts.
+Only explicit expiry or confirmed not-found sets `removed_at`; search absence/failures do not. Reappearance clears removal. Invalid-import repair retains the full snapshot in quarantine rather than claiming source expiry.
 
-Defaults: one page/query, ten details/source, 300 requests and ten minutes; configure
-`CRAWL_QUERIES`, `CRAWL_MAX_*` and `DETAIL_REFRESH_HOURS`. Limits report partial coverage.
-All boards work and a live cross-board duplicate is verified; broader review and
-browser/volume optimization remain upcoming.
+Dedupe indexes employer/role/place and checks requisitions/distinctive text/contradictions. Complete-link checks avoid transitive false merges; oldest IDs survive and wording edits retain identity. Verified references are separate hash-bound provenance. Tesco channels require corroborated legal employer/requisition and exact role/place/text. Unknown aliases stay unlinked. Curated/holdout tests are not general precision/recall estimates.
 
-Each run rewrites `output/jobs.jsonl` (including removed rows) and `output/report.json`.
-Source totals are live database counts; lifecycle counts are per-run. `duplicates_linked`
-counts copies beyond one per stored canonical group. Logs are under ignored `output/runs/`.
-Set `PROXY_COST_PER_GB_USD` for cost/1,000 request attempts; costs remain null without
-the rate. Decoded bytes estimate traffic, not proxy billing. Export verification:
-`docker compose run --rm --no-deps crawler uv run --locked --offline python -m crawler.verify_exports`.
+## Outputs and cost
+
+Every run rewrites `output/jobs.jsonl` (all assessment rows, including removed) and `output/report.json`. Source totals are live DB counts; lifecycle counts are per-run. Logs/captures are under ignored `output/runs/`. A 75-detail queue benchmark took 173 seconds and 114 requests, receiving 45.7 MB decoded bodies. This is approximately **0.61 × R USD per 1,000 listing fetches**, if actual proxy rate **R USD/GB** is supplied as `PROXY_COST_PER_GB_USD`; estimates otherwise remain null. Decoded bodies are not billed bytes. Reports separate listing fetches, network attempts, accepted refreshes/new jobs and per-source efficiency.
+
+Verify DB/export/hash/request accounting with `docker compose run --rm --no-deps crawler uv run --locked --offline python -m crawler.verify_exports`.

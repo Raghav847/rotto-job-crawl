@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "scope": "Manually inspected development pairs; not a random precision/recall estimate",
+  "pairs": [
+    {"name": "leidos_bristol_cross_board", "left": "indeed:9da46040ed4098e1", "right": "linkedin:4473672005", "duplicate": true, "reason": "Same Leidos Bristol role, responsibilities and distinctive description, manually verified across boards"},
+    {"name": "tesco_recruitment_channels", "left": "linkedin:4470379586", "right": "linkedin:4470374657", "duplicate": true, "reason": "Identical role/workplace/complete description, explicit Tesco Stores Limited legal employer, references 209433TescoUK and 209433Technology, one-second posting gap"},
+    {"name": "humaans_seniority_and_requisition", "left": "linkedin:3955668958", "right": "linkedin:4030407849", "duplicate": false, "reason": "Same description but different advertised seniority and employer requisitions 44421-0/69448-0"},
+    {"name": "connells_platform_vs_core_data", "left": "reed:57147108", "right": "reed:57115738", "duplicate": false, "reason": "Different platform operations versus core reporting duties and explicit CF00744/CF00810 references"},
+    {"name": "norton_ai_vs_data_science", "left": "reed:57364884", "right": "reed:57364885", "duplicate": false, "reason": "Same company/location/date and introduction, but AI product engineering versus data science/data engineering responsibilities"},
+    {"name": "norton_ai_vs_platform", "left": "reed:57364884", "right": "reed:57265783", "duplicate": false, "reason": "London applied AI role versus Newcastle data-platform service/operations role"},
+    {"name": "capital_one_manager_vs_engineer", "left": "indeed:13abf4d64f8f2cdc", "right": "indeed:2c8b21e91b74d8ba", "duplicate": false, "reason": "People/engineering management versus individual software engineering responsibilities"},
+    {"name": "capital_one_services_vs_ml", "left": "indeed:1cb9991f8f8dfafd", "right": "indeed:345023d7eb6fa3ee", "duplicate": false, "reason": "Lead backend/services delivery versus staff multi-team ML/AI technical leadership"},
+    {"name": "capital_one_manager_vs_staff_ml", "left": "indeed:13abf4d64f8f2cdc", "right": "indeed:345023d7eb6fa3ee", "duplicate": false, "reason": "People-management position versus staff ML engineering strategy position"},
+    {"name": "jpm_finance_vs_ai_data_platforms", "left": "indeed:45a469bc422defd3", "right": "indeed:4f29f72d41501e80", "duplicate": false, "reason": "Finance Technology/Spark calculations versus AI and ML Data Platforms full-stack role"},
+    {"name": "jpm_trading_vs_risk_frameworks", "left": "indeed:6ab35cf4f2dd1816", "right": "indeed:d8aa52d3c7900fba", "duplicate": false, "reason": "Treasury trade-execution platform versus risk-framework frontend/full-stack responsibilities"},
+    {"name": "jpm_principal_vs_engineer_iii", "left": "indeed:f329a774c8defe83", "right": "indeed:24d1d7e6e352b94b", "duplicate": false, "reason": "Principal/executive engineering-excellence scope versus engineer III platform delivery"},
+    {"name": "jpm_payments_vs_finance", "left": "indeed:89fc15da595f38e2", "right": "indeed:45a469bc422defd3", "duplicate": false, "reason": "Graphite cloud payments execution versus senior lead Finance Technology/Spark scope"},
+    {"name": "fdm_returner_vs_client_ai", "left": "reed:56212211", "right": "reed:57354540", "duplicate": false, "reason": "Data/analytics returner programme employment versus a specific higher-education AI development client engagement"},
+    {"name": "different_recruiters_and_platforms", "left": "reed:57364627", "right": "reed:57379454", "duplicate": false, "reason": "GCP platform contract via Harnham versus SQL/insurance transformation via Oliver James, different duties and contract terms"},
+    {"name": "leidos_vs_jpm_glasgow", "left": "linkedin:4473672005", "right": "indeed:24d1d7e6e352b94b", "duplicate": false, "reason": "Different employer, workplace and engineering programme despite generic engineering language"}
+  ]
+}

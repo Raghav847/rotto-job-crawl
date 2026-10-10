@@ -8,12 +8,58 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 
+SENSITIVE_FIELD = r"token|cookie|csrf|ctk|tk|session|api.?key|account|tracking|segment|querystring|requestpath"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("page", type=Path)
     parser.add_argument("--metadata", action="store_true")
+    parser.add_argument("--identity", help="Print selected-job metadata only")
     args = parser.parse_args()
     soup = BeautifulSoup(args.page.read_text(), "html.parser")
+    if args.identity:
+        from crawler.indeed import cards, pane_identity
+        pane = soup.select_one("[data-testid='viewjob-main-content']")
+        results = cards(soup)
+        matches = [card for card in results if str(card.get("jobkey")) == args.identity]
+        print(json.dumps({"pane_id": pane_identity(pane) if pane else None, "cards_total": len(results), "matches": len(matches),
+                          "selected_cards": [{key: card.get(key) for key in ("jobkey", "country", "formattedLocation", "pubDate", "company", "title")} for card in matches]}, indent=2))
+        for script in soup.find_all("script"):
+            content = script.get_text()
+            for key in ("jobInfoWrapperModel", "jobInfoModel", "jobViewModel", "viewJobData", "initialJob"):
+                match = re.search(r'"' + key + r'"\s*:', content)
+                if match:
+                    try:
+                        value, _ = json.JSONDecoder().raw_decode(content[match.end():].lstrip())
+                    except ValueError:
+                        continue
+                    print(json.dumps({"view_key": key, "keys": list(value) if isinstance(value, dict) else type(value).__name__}))
+                    if isinstance(value, dict):
+                        print(json.dumps({"view_scalars": {name: item for name, item in value.items()
+                                                           if isinstance(item, (str, int, float, bool)) and len(str(item)) < 250
+                                                            and not re.search(SENSITIVE_FIELD, name, re.I)}}))
+                        for child in ("jobInfoHeaderModel", "jobMetadataHeaderModel", "jobDebugInfoModel", "jobDescriptionSectionModel"):
+                            data = value.get(child)
+                            if isinstance(data, dict):
+                                print(json.dumps({"child": child, "values": {name: item if isinstance(item, (str, int, float, bool)) and len(str(item)) < 400 else type(item).__name__
+                                                                          for name, item in data.items() if not re.search(SENSITIVE_FIELD, name, re.I)}}))
+                    position = match.start()
+                    for _ in range(15):
+                        position = content.rfind("{", 0, position)
+                        if position < 0:
+                            break
+                        try:
+                            outer, length = json.JSONDecoder().raw_decode(content[position:])
+                        except ValueError:
+                            continue
+                        if isinstance(outer, dict) and "jobInfoWrapperModel" in outer:
+                            print(json.dumps({"view_outer_keys": list(outer), "view_outer_values": {
+                                name: item if isinstance(item, (str, int, float, bool)) and len(str(item)) < 300 else type(item).__name__
+                                for name, item in outer.items() if not re.search(SENSITIVE_FIELD, name, re.I)
+                            }}))
+                            break
+        return
     print("Title:", soup.title.get_text(" ", strip=True) if soup.title else None)
     pane = soup.select_one("[data-testid='viewjob-main-content']")
     if pane:
@@ -65,7 +111,7 @@ def main():
                         )}}))
                     print(json.dumps({"first_card_fields": {
                         key: value if isinstance(value, (str, int, float, bool)) and len(str(value)) < 300 else type(value).__name__
-                        for key, value in results[0].items() if not re.search(r"token|cookie|session|ctk|tk|csrf|tracking|link", key, re.I)
+                        for key, value in results[0].items() if not re.search(SENSITIVE_FIELD + "|link", key, re.I)
                     }}))
 
             def walk(node, path=""):
@@ -76,7 +122,7 @@ def main():
                     if any(key in node for key in ("jobKey", "jobInfoModel", "jobInfoWrapperModel", "sanitizedJobDescription", "jobDescription", "jobTitle")):
                         print(json.dumps({"path": path, "fields": {
                             key: value if isinstance(value, (str, int, float, bool)) and len(str(value)) < 300 else type(value).__name__
-                            for key, value in node.items() if not re.search(r"token|cookie|session|ctk|tk|csrf", key, re.I)
+                            for key, value in node.items() if not re.search(SENSITIVE_FIELD, key, re.I)
                         }}))
                     for key, item in node.items():
                         if isinstance(item, (list, dict)):

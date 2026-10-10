@@ -43,7 +43,7 @@ Prioritize a working integration for every board, extraction accuracy, lifecycle
 - [x] Define explicit reconciliation inputs: observed listings, content observations versus discovery-only sightings, and confirmed removals. Adapt the actual fixture format into these inputs; traversal completion alone never supplies removal evidence.
 - [x] Implement transactional source-ID inserts/updates and per-run counters using persisted previous state.
 - [x] Keep successful detail-refresh timestamps outside the content hash in a supporting table.
-- [ ] Add source change signals and crawl-resumption state when integrating live fetching.
+- [x] Add durable pending candidates and scope/cycle checkpoints for crawl resumption. No reliable full-content change signal is assumed; periodic refresh remains necessary.
 - [x] Build the fixture runner using the same reconciliation service, with assertions against expected stored rows and report counts after every run. Apply each run a second time, compare the complete stored rows before/after replay, and require zero lifecycle counts.
 - [x] Guarantee test-database isolation: create a new uniquely named database, verify its name, and remove only the database created by that session. Never reset a configured existing database.
 - [x] Exercise unseen listings, unchanged observations, edited content, detail-only changes, explicit removal, repeat removal, reappearance, partial runs, failed pages, and repeated identical input. Add focused tests where the supplied fixture leaves important cases uncovered.
@@ -93,6 +93,9 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 - [x] Persist successful observations so reruns skip fresh details and resume missing work safely. Use idempotent writes rather than a wipe-and-reload workflow.
 - [x] Prevent overlapping crawl processes from producing conflicting lifecycle changes or exports.
 - [x] Finalize reports and exports on handled partial failures and interrupts; preserve committed data after abrupt termination and make the next run recover safely.
+- [x] Verify live process interruption/resumption: Reed page one/25 pending IDs committed
+  before SIGINT; rerun resumed at page two in the same cycle and accepted two queued jobs.
+  Offline tests also verify page/detail rollback and acknowledgement after interruption.
 - [x] Aggregate request totals, blocked totals, statuses/errors, decoded response-body bytes, and estimated cost consistently with request logs. Costs remain null until the actual rate is supplied.
 
 **Acceptance:** a blocked source or failed page leaves existing data intact, retries terminate, and request/report statistics explain what happened.
@@ -112,6 +115,58 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 - [ ] Expand parser samples and manual review across more layouts and the Indeed integration.
 - [ ] Manually compare a small sample from each board field by field with public pages, expanding checks as volume grows. Aim for at least 95% accuracy.
 
+**Initial accuracy review:** see `accuracy-findings.md`. All 20 current rows have captured source evidence and were rechecked through fresh live detail observations. Five LinkedIn salary records and one inline-word formatting defect were corrected; Indeed's selected-view fallback now works when the job is absent from search cards. Larger random samples (at least 25 per board), additional layouts, real remote roles and hidden-employer cases remain open. The description word-stream check agrees for 20/20 rows but is not an accuracy score.
+
+**Twelve-listing follow-up (2026-10-09):** four new listings per board were reviewed
+against complete captured descriptions/metadata, bringing documented review coverage
+to 32 rows (7 Indeed, 15 LinkedIn, 10 Reed). Four Indeed dates were missing because
+the selected panes omitted dates present on earlier search cards. ID-bound candidate
+date hints now survive scope changes and enrich only successful detail observations.
+Two live maintenance runs corrected all four dates while preserving first seen and
+canonical IDs; no new listings/removals. Other fields agree in this batch, including
+hourly PAYE/umbrella source precedence and null Indeed branding logos. All 76 tests
+plus lifecycle replays/export verification pass. Broader random sampling remains open.
+
+**Remaining-five review (2026-10-09):** the DFYNE/Tesco/Kingdom People rows and two
+new Reed data-engineer rows were reviewed against captured full descriptions and
+source metadata. No additional extraction defects; all five word streams agree.
+Documented source-field review now covers every current live row (8 Indeed, 16
+LinkedIn, 13 Reed). FDM's returner listing is employment with upskilling, not a
+tuition-only advert. A Tesco/Tesco Technology same-vacancy candidate with identical
+text/place and shared reference stem was recorded for matching-policy review.
+Export verification passes; the 25-reviewed/source and broader dedupe goals remain open.
+
+**LinkedIn 25-reviewed milestone (2026-10-09):** a bounded two-page/12-detail crawl
+added ten listings using 14 requests, no blocks, and two UK-ambiguous rejections.
+All ten were reviewed field by field. Wise's contradictory `£145,000k`/`145K GBP`
+wording revealed one parser defect; explicit GBP notation and narrow corroboration
+now produce 111000/145000 with null period. A two-request targeted maintenance run
+applied the correction, preserving first seen/canonical ID. All 93 tests/fixture
+replays and export checks pass. Current source-field review covers 47 live rows:
+8 Indeed, 26 LinkedIn, 13 Reed. Reed/Indeed still need 12/17 reviews respectively.
+
+**Reed 25-reviewed milestone (2026-10-09):** a two-query/two-page/15-detail crawl
+added fifteen listings using 19 requests, no blocks or failures. All fifteen full
+descriptions and source fields were reviewed; no new extraction defect. Daily versus
+annual compensation, absent logos, nonnumeric pay and source headline/prose differences
+were checked. Three abrupt Norton Rose description endings agree across visible and
+structured text, so no source continuation is invented. Concrete Norton Rose/Connells
+negative dedupe examples were recorded. Review now covers 62 live rows: 8 Indeed,
+26 LinkedIn, 28 Reed; exports verify with 61 canonical jobs. Indeed needs 17 further
+reviewed listings for the third-board milestone.
+
+**All-board 25-reviewed milestone (2026-10-09):** six public Indeed first-page
+software/data UK/London/Manchester scopes added twenty valid listings from 22 detail
+selections, with two identity failures safely excluded. 78 requests/33.84 MB decoded
+bodies; no content changes/removals or page-two auth attempts. All twenty full
+descriptions and source fields were reviewed with no new extraction defect; all
+twenty ID-bound discovery dates match stored dates. Additional cases cover UK-eligible
+remote/home working, full-time four-day weeks, one-sided salary ceilings, permanent-only
+type nulls, declared logo versus banner, and headline/prose discrepancies. Current
+reviewed counts are 28 Indeed, 26 LinkedIn and 28 Reed (82 live/81 canonical jobs).
+All boards exceed 25 reviewed rows; general/random accuracy and real dedupe evaluation
+remain open. See `accuracy-findings.md` for the full per-row evidence.
+
 **Acceptance:** one `make crawl` produces independently verifiable live UK listings from all three sources, with full descriptions and every required field present.
 
 **Verified live milestone:** a nine-request bounded run inserted three LinkedIn and two Reed listings and excluded a Reed training course; Indeed returned HTTP 403. A three-request discovery-only rerun preserved all five first-seen timestamps and content hashes, advanced last seen, and returned zero lifecycle counts. Both runs exported real stored rows, and the export verifier checked table equality, hashes, source counts, and request-log accounting.
@@ -129,46 +184,124 @@ Do not overwrite complete records with partial search-card data. A discovery sig
 - [x] Choose conservative thresholds and reject conflicting references, workplaces/postcodes, named teams, seniority, specializations and explicit working hours. Reject unknown employers and unverified recruiter/employer aliases.
 - [x] Preserve the oldest established canonical ID on merges, keep identity through wording-only edits, and split an edited listing on clear contradictions. Complete-link checks reject weak transitive bridges.
 - [x] Evaluate 16 labelled synthetic positive/negative pairs and a manually reviewed live Leidos copy across Indeed/LinkedIn. Indexed candidates avoid global all-pairs comparisons.
-- [ ] Expand the labelled corpus with more independently reviewed real pairs and measure precision/recall beyond the small current sample.
+- [x] Add a frozen independently inspected real-pair development corpus and measure its precision/recall. Continue expanding cross-board positives and independent holdout cases beyond its two current positives.
 - [x] Define `duplicates_linked` as stored copies beyond one per canonical group; lifecycle counts remain per-run and exclude canonical-only changes.
 
 **Acceptance:** unchanged listings avoid unnecessary details, a detail-only edit is detected when refresh becomes due, failed refreshes do not hide changes, and true duplicates share a stable canonical ID without merging distinct vacancies.
 
 **Dedupe milestone:** shared persistence now builds versioned matching features and hashed match evidence transactionally. Legacy rows are indexed once without detail requests. The targeted Leidos crawl added four LinkedIn rows and linked the Bristol Software Engineer copy to its existing Indeed canonical ID; differing Leidos locations/roles stayed separate. The database contains 20 live source listings and 19 canonical jobs, with one duplicate link. A discovery-only replay returned zero lifecycle counts and retained the grouping. All 55 tests and the public fixture pass; synthetic pair precision/recall are perfect on this small labelled set, not a general accuracy claim.
 
+**Real-corpus/reference milestone (2026-10-09):** sixteen labelled pairs from 26
+source snapshots (two positives/fourteen negatives) are frozen for offline regression.
+Baseline TP=1/FN=1/FP=0/TN=14; rule version 2 gives TP=2/FN=0/FP=0/TN=14 on this
+small curated set. Identity-bound structured employer references are persisted outside
+content hashes with evidence-cache invalidation. A narrowly corroborated Tesco channel
+rule links the same legal employer/requisition/title/place/text without general aliases.
+Three live requests refreshed the two existing Tesco rows and retained the older
+canonical ID, original first seen/hashes and Leidos group, with zero lifecycle changes.
+Exports verify at 82 live/80 canonical jobs/two duplicate links. All 102 tests and fixture
+replays pass. Broader positives/independent holdout remain open; see `dedupe-findings.md`.
+
 ## Phase 6 — Scale coverage within the budget
 
-- [ ] Broaden discovery using source-supported pagination and nonredundant UK query partitions selected from observed source limits.
-- [ ] Detect repeated pages, pagination loops, result caps, overlapping queries, and unstable result ordering. Never label capped search coverage as authoritative completeness.
-- [ ] Avoid redundant detail requests across overlapping queries and already-fresh listings.
+**Efficiency milestone:** see `efficiency-findings.md`. For the same three-Indeed-detail review workload, the lean resource policy reduced request attempts from 224 to 24 and decoded bytes from 12.74 MB to 6.31 MB, with three successful refreshes and unchanged stored content. Security-check resources remain allowed. Locally skipped requests now reserve no network-budget slots; automatic redirects remain logged. Larger benchmark samples and document-traffic optimization are still needed.
+
+**New-listing verification:** a subsequent all-board bounded run accepted one new job per board using 23 requests total. Current exports hold 23 live source rows (4 Indeed, 12 LinkedIn, 7 Reed), 22 canonical jobs and one linked duplicate. All 65 tests and the public lifecycle fixture pass; the export verifier matches table contents and request accounting.
+
+- [x] Broaden discovery using source-supported pagination and nonredundant UK query partitions selected from observed source limits.
+- [x] Detect repeated pages, pagination loops, configured page caps and overlapping queries. Never label capped search coverage as authoritative completeness; ordering instability remains an operational constraint.
+- [x] Avoid redundant detail requests across overlapping queries and already-fresh listings.
 - [ ] Tune per-source concurrency from measured success/block rates, valid jobs per request, bytes per job, and remaining allowance.
+- [x] Add queue-aware discovery and a coordinated sequential benchmark with per-source
+  request/traffic/block/accepted/new metrics. Preserve untested concurrency as optional
+  later work rather than assuming it is faster under source blocking.
 - [ ] Track distinct live source listings and distinct canonical jobs separately. Keep all three boards represented.
-- [ ] Use configurable limits and time budgets for development, then select a practical documented default that runs unattended on the evaluator's clean machine.
+- [x] Select documented queue-aware defaults: software/data queries, two HTTP pages/one Indeed page, twenty details/source, two-second HTTP pacing, 300 requests/600 seconds.
 - [ ] Stop or back off wasteful blocked traffic. Request additional allowance only if progress and measurements justify it.
 - [ ] Recheck accuracy as discovery expands; scale only adapters that remain reliable.
 
 **Acceptance:** increased verified coverage without sacrificing correctness, bounded unattended execution, and measurable request/bandwidth efficiency.
 
+**Coordinated speed/quality pass (2026-10-09):** a 75-task all-board queue run finished
+in 172.724 seconds, avoiding rediscovery on every board and using 114 requests/45.73 MB
+decoded bytes. Independent triage plus seeded five/source full-text review caught two
+defects missed by simple metadata agreement: an Australian relocation false positive
+and copied-page footer/between-and salary. The incorrect import is fully archived with
+source proof, not marked expired; one targeted request applied the description/salary
+repair. Source-confirmed expiry remains separate. Current exports verify at 133 live/
+131 canonical jobs, 134 stored rows plus one invalid snapshot archived. Defaults,
+artefact filtering/queue suppression and explicit cost metrics are implemented; 115 tests
+and fixture replays pass. A separate seven-negative/one-unresolved dedupe holdout passes
+without claiming recall. 265 candidates remain queued and the cohort is sampled/triaged,
+not wholly manually reviewed. See `acceleration-findings.md` for commands and limits.
+
+**Discovery milestone (2026-10-09):** two queries across UK-wide/London scopes found
+197 LinkedIn, 102 Reed and 56 Indeed IDs; a five-detail/source budget added four
+listings per board (35 live rows/34 canonical jobs total) using 64 requests. Reed's
+ignored location parameter was corrected to declared `-jobs-in-london` paths.
+A three-page discovery-only follow-up found 208 LinkedIn, 266 Reed and 52 Indeed IDs
+with 51 requests and zero lifecycle transitions. LinkedIn guest offsets 60/70 work,
+but a subsequent scope returned 429; stop-on-block preserved data. Indeed's page-two
+sign-in limit is learned once per run, allowing later public first-page scopes and
+details. Export verification passed after both runs; 74 tests plus fixture replays
+pass. Evidence/commands are in `knowledge-base/status.md`; larger accuracy sampling,
+pending-candidate queues and durable traversal checkpoints remain open.
+
+**Recovery milestone (2026-10-09):** durable candidate/date queues and source/scope
+checkpoints now commit atomically with observations. Matching unfinished cycles resume
+within the refresh interval; completed/changed/stale plans restart discovery while
+retaining queued details. A live Reed SIGINT run retained 25 IDs and all 35 stored rows;
+the rerun fetched pages two/three plus two queued details (four requests), producing
+37 live rows/36 canonical jobs and leaving 72 candidates pending. Both export checks
+passed. All 88 tests plus fixture runs/replays pass; full evidence is in
+`recovery-findings.md` and the knowledge base. Fresh-checkout rehearsal remains next.
+
 ## Phase 7 — Reproducibility and submission
 
-- [ ] Verify clean setup: `docker compose up -d`, then `make crawl`, with dependencies/schema initialization handled automatically and credentials supplied only through the supported environment interface.
-- [ ] Run `make crawl` again and verify first-seen preservation, correct counts, persistence, and reduced unnecessary detail requests.
-- [ ] Run `make test` and `FIXTURE_PATH=/path/to/file.json make test` with no network/proxy access.
+- [x] Verify clean current-code setup: `docker compose up -d`, then `make crawl`, with dependencies/schema initialization handled automatically and credentials supplied only through the supported environment interface. Final committed remote-clone verification remains a submission step.
+- [x] Run `make crawl` again and verify first-seen/hash/canonical preservation, correct counts, persistence, and fresh-detail skips.
+- [x] Run `make test` and `FIXTURE_PATH=/path/to/file.json make test` offline with proxy credentials cleared.
 - [x] Export all rows with explicit nulls, valid JSONL, consistent timestamps, and deterministic ordering. Publish each file atomically and include an export checksum to identify the matching report snapshot.
 - [x] Verify `output/report.json` contains `started_at`, `finished_at`, `requests_total`, `requests_blocked`, `requests_by_status`, `jobs_by_source`, `duplicates_linked`, `jobs_new`, `jobs_removed`, `jobs_changed`, and `estimated_cost_usd`.
 - [x] Source counts represent live database totals; lifecycle counts are strictly per-run. Include source outcomes and configured limits as partial-run context.
-- [ ] Write the one-page README: setup, architecture, access methods and failed attempts, refresh/removal policy, dedupe tradeoffs, and cost per 1,000 pages with assumptions.
+- [x] Finalize the compact submission README (498 words): setup, access/failed approaches, lifecycle/recovery, dedupe, controls and cost/1,000 with explicit rate/traffic assumptions.
 - [ ] Record the Loom: demonstrate a real crawl and explain access, reconciliation, safe removals, dedupe, and efficiency decisions in under five minutes.
 - [ ] Review tracked files for credentials; commit the latest real exports and intended code changes when ready to submit.
 - [ ] Confirm private repository access for `gibbsdylan`, push before the deadline, and submit repository and Loom links through the assessment form.
 
 **Acceptance:** the evaluator can reproduce the live crawl and offline tests without manual code changes, and the committed exports are substantiated by actual runs.
 
+**Clean-source rehearsal (2026-10-09):** a separate temporary Git index/checkout
+included current uncommitted runtime files/tests and excluded local credentials,
+environments, captures and old exports. An uncached build plus fresh UUID-named
+database produced six real jobs (two/board) using 18 requests. The incremental run
+preserved all original first-seen/hash/canonical values, skipped fresh details and
+added five pending listings, with zero changes/removals. Default/absolute-fixture
+test forms each passed 88 tests and all fixture runs/replays, with proxy credentials
+cleared. Export checks passed after both crawls and tests. All nine live-table
+fingerprints, export hashes, staging and HEAD were unchanged; only the new isolated
+project/volume was removed. Evidence: `reproducibility-findings.md`. The final
+committed private GitHub clone/access check remains open.
+
+**Final-default release rehearsal (2026-10-10):** current candidate snapshot tree
+`0d69d133db8b8ea3fa1c32c535cddd2af315541c` built uncached into an empty UUID database.
+Actual defaults produced 52 real listings across all boards; incremental run added 37,
+preserved all original first-seen/hash/canonical values and made zero fresh-original
+detail requests. LinkedIn 429 stopped safely. Both offline test forms passed 115 tests
+plus all fixture runs/replays; exports verified after crawls/tests. All eleven live
+table fingerprints, intended export hashes, staging and HEAD stayed unchanged; isolated
+resources were cleaned up. Secret audit/exclusions passed for candidate files/staging/
+history. Final original exports verify at 134 stored/133 live/131 canonical jobs.
+The SSH remote is reachable but main is still the old checkpoint; gh is unavailable
+and privacy/collaborator access unverified. Explicit commit/push, committed remote-clone,
+owner Loom recording/link and actual submission are the remaining release actions.
+`submission-checklist.md` supplies owner steps and a 4m40s walkthrough outline.
+
 ## Immediate next work session
 
-1. Broaden field-level review and the independently labelled real dedupe corpus.
-2. Reduce Indeed browser asset traffic and investigate reliable source change signals and richer resumption bookkeeping.
-3. Expand queries and paging within measured accuracy and bandwidth limits.
-4. Finish fresh-database clean-machine checks, cost assumptions, documentation and submission materials.
+1. Obtain explicit commit/push authorization, inspect status/diff/log and rerun secret checks, stage intended files/latest exports and release the verified candidate.
+2. Owner confirms Private visibility and `gibbsdylan` access; verify the final committed remote clone after push.
+3. Record/share the <=5-minute Loom and submit repository/Loom links before 2026-10-10T22:12Z.
+4. Optional later improvements: further bounded sampled queue growth (265 pending) and confirmed-positive dedupe holdout. These do not justify a general 95%/recall claim from the current development samples.
 
 Keep evidence of access experiments and unresolved decisions as implementation progresses. Finalize source-specific details from observed behaviour rather than assumptions.
