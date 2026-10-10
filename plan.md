@@ -266,8 +266,11 @@ passed. All 88 tests plus fixture runs/replays pass; full evidence is in
 - [x] Source counts represent live database totals; lifecycle counts are strictly per-run. Include source outcomes and configured limits as partial-run context.
 - [x] Finalize the compact submission README (498 words): setup, access/failed approaches, lifecycle/recovery, dedupe, controls and cost/1,000 with explicit rate/traffic assumptions.
 - [ ] Record the Loom: demonstrate a real crawl and explain access, reconciliation, safe removals, dedupe, and efficiency decisions in under five minutes.
-- [ ] Review tracked files for credentials; commit the latest real exports and intended code changes when ready to submit.
+- [x] Review tracked files for credentials; commit the latest real exports and intended code changes when ready to submit.
 - [ ] Confirm private repository access for `gibbsdylan`, push before the deadline, and submit repository and Loom links through the assessment form.
+- [x] Owner-authorized release `23ab4fd` committed/pushed and fresh remote clone verified;
+  local agent instructions/submission checklist remain ignored. Private visibility/
+  collaborator access and owner Loom/assessment submission are still open.
 
 **Acceptance:** the evaluator can reproduce the live crawl and offline tests without manual code changes, and the committed exports are substantiated by actual runs.
 
@@ -299,9 +302,8 @@ owner Loom recording/link and actual submission are the remaining release action
 
 ## Immediate next work session
 
-1. Obtain explicit commit/push authorization, inspect status/diff/log and rerun secret checks, stage intended files/latest exports and release the verified candidate.
-2. Owner confirms Private visibility and `gibbsdylan` access; verify the final committed remote clone after push.
-3. Record/share the <=5-minute Loom and submit repository/Loom links before 2026-10-10T22:12Z.
-4. Optional later improvements: further bounded sampled queue growth (265 pending) and confirmed-positive dedupe holdout. These do not justify a general 95%/recall claim from the current development samples.
+1. Owner confirms Private visibility and `gibbsdylan` access; release `23ab4fd` is already pushed and remotely cloned/verified.
+2. Record/share the <=5-minute Loom using the local ignored outline and submit repository/Loom links before 2026-10-10T22:12Z.
+3. Optional later improvements: further bounded sampled queue growth (265 pending) and confirmed-positive dedupe holdout. These do not justify a general 95%/recall claim from the current development samples.
 
 Keep evidence of access experiments and unresolved decisions as implementation progresses. Finalize source-specific details from observed behaviour rather than assumptions.

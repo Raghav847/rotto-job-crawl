@@ -1,19 +1,37 @@
 # Current status and handoff
 
-Last updated: 2026-10-10T00:25Z. Submission technical checks and final audit passed; owner release actions remain.
+Last updated: 2026-10-10T00:44Z. Verified release pushed; owner access, Loom and submission actions remain.
 
 ## Active task
+
+Owner-authorized release was committed as `23ab4fd18dc32670f922360e94fbcbb2d5664ba6`
+(`finalize crawler recovery accuracy and release exports`) and pushed to origin/main.
+Remote branch and a fresh SSH clone both resolve to that exact commit. The clone has
+no tracked AGENTS.md/agents.md/submission-checklist.md/.env/task.txt; the local checklist
+and agent instructions remain ignored and available in the working directory.
+
+Runtime/build/test/config/README files in the pushed commit are byte-identical to the
+successfully rehearsed source tree `0d69d133db8b8ea3fa1c32c535cddd2af315541c`, verified
+by `git diff --exit-code <snapshot-tree> HEAD -- crawler tests compose.yaml Dockerfile
+Makefile pyproject.toml uv.lock .env.example .dockerignore README.md`. Clone location:
+approved temporary `release-clone-23ab4fd/`. Secret audit/exclusions and export verifier
+passed before commit. GitHub privacy/collaborator access cannot be inferred from SSH
+reachability and still require owner confirmation. No Loom or assessment submission.
+
+This verification handoff is being recorded in a small follow-up documentation commit.
+Remaining owner steps: confirm Private/gibbsdylan access, record/share Loom (local
+ignored checklist supplies outline), submit repository and Loom URLs before deadline.
 
 Owner explicitly authorized commit/push of the verified release, with
 `submission-checklist.md` and agent instructions excluded. Root `.gitignore` now
 excludes `/submission-checklist.md`, `/AGENTS.md` and `/agents.md`; these local files
 remain available for handoff but are not release contents. Release audit, intended
-staging, commit/push and remote verification are in progress. Final privacy/collaborator
+staging, commit/push and remote verification are complete. Final privacy/collaborator
 confirmation, Loom recording/share URL and assessment submission remain owner actions.
 
 Submission preparation is complete on the technical side. README is condensed to
 498 whitespace-delimited words; `submission-checklist.md` contains final owner actions
-and a timed <=5-minute Loom outline. No recording, commit, push or assessment submission
+and a timed <=5-minute Loom outline. No recording or assessment submission
 has been made. GitHub CLI is absent; SSH remote reachability is confirmed but does not
 prove privacy/collaborator access. Owner must verify private visibility and `gibbsdylan`.
 
@@ -35,12 +53,12 @@ duplicate links). Readonly secret audit passed across 77 candidate paths, staged
 70 unique history blobs/four commits. Source credentials/local capture exclusions are
 confirmed. An intentional dummy unsafe-redirect URL was re-expressed without a literal
 credential-bearing URL; test behavior and the final default-runtime suite remain valid.
-`git diff --check` passed. `git ls-remote --heads origin` confirms remote main still at
-`b3cd36dfbd1bbf37186b17b454e53e5a87a1ff3d`; current verified changes need explicit
-commit/push authorization, then final committed remote-clone verification.
+`git diff --check` passed. Following owner authorization, `git ls-remote --heads origin`
+confirms release `23ab4fd18dc32670f922360e94fbcbb2d5664ba6` on remote main;
+committed remote-clone verification passed as recorded above.
 
-Release steps now: authorize commit/push -> confirm private/collaborator access ->
-verify committed clone -> record/share Loom -> submit both URLs by 2026-10-10T22:12Z.
+Release steps now: confirm private/collaborator access -> record/share Loom -> submit
+both URLs by 2026-10-10T22:12Z. Authorized commit/push and clone verification are complete.
 Keep the next working block focused on those release actions rather than optional
 additional queue growth. Full final rehearsal evidence: `reproducibility-findings.md`.
 
@@ -377,12 +395,10 @@ branding payloads, then the full twelve-record inventory was regenerated success
 `git diff --check` passed after the final code/documentation edits.
 
 Immediate next steps:
-1. Obtain explicit commit/push authorization, recheck secret audit/status/diff/log and
-   stage only intended code/docs/fixtures/latest exports. Final remote main is still old.
-2. Owner confirms repository Private and `gibbsdylan` collaborator access; gh is unavailable.
-3. Verify the final committed remote clone, record/share the <=5-minute Loom using the
-   outline, and submit repository/Loom URLs before 2026-10-10T22:12Z.
-4. Optional further work: bounded queue growth (265 remaining) with sampling/triage and
+1. Owner confirms repository Private and `gibbsdylan` collaborator access; gh is unavailable.
+2. Record/share the <=5-minute Loom using the local ignored outline and submit repository/
+   Loom URLs before 2026-10-10T22:12Z. Release commit is pushed and remotely cloned/verified.
+3. Optional further work: bounded queue growth (265 remaining) with sampling/triage and
    independently confirmed positive dedupe holdout. Do not claim general recall/95% accuracy.
 
 Discovery implementation is validated: source next links, LinkedIn guest offsets,

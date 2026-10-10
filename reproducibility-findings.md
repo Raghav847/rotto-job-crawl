@@ -143,5 +143,22 @@ absent, so repository privacy and `gibbsdylan` access require owner confirmation
 committed remote-clone verification, Loom recording/share link and actual submission
 remain release actions, not claims made by this rehearsal.
 
-Next: independent review of remaining stored rows, expansion toward 25 reviewed
-listings per board, then final committed-repository access/clone and submission checks.
+## Authorized push and committed remote-clone check
+
+Owner authorized release commit/push and explicitly requested the local submission
+checklist and agent instructions be ignored. `.gitignore` covers both AGENTS.md and
+agents.md spellings plus submission-checklist.md. They were untracked and were not
+included. Credentials/captures remain excluded; pre-commit staged/history audit passed.
+
+Release commit `23ab4fd18dc32670f922360e94fbcbb2d5664ba6` was pushed to origin/main.
+`git ls-remote --heads origin` and a fresh SSH clone return the same hash. The clone
+contains no tracked local instruction/checklist or credential files and is clean.
+Runtime/build/test/config/README files are identical to the uncached/default/incremental
+tested snapshot tree `0d69d133db8b8ea3fa1c32c535cddd2af315541c`; only release ignores
+and evidence/handoff documentation differ. No extra live data was collected or reset.
+Owner confirmation of Private visibility/gibbsdylan access, Loom share link and actual
+assessment submission remain outstanding. This verification record accompanies a
+follow-up documentation commit; application/runtime content is unchanged.
+
+Next: owner confirms repository privacy/collaborator access, records/shares Loom,
+and submits repository/Loom URLs. Further collection/review is optional.
