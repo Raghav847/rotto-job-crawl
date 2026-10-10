@@ -1,8 +1,54 @@
 # Current status and handoff
 
-Last updated: 2026-10-10T00:44Z. Verified release pushed; owner access, Loom and submission actions remain.
+Last updated: 2026-10-10T02:14Z. Post-Loom exports verified; owner reports private repo and pending evaluator invitation.
 
 ## Active task
+
+Owner reports Loom recording complete, repository Private and invitation sent to
+`gibbsdylan`; acceptance is not confirmed. Loom share URL and assessment submission
+confirmation have not been supplied. `gh` is still unavailable, so GitHub settings/
+invitation state cannot be independently checked here. Owner authorized final review
+and committing required changes; latest real exports and handoff are being released.
+
+Final review: application/runtime files unchanged from tested release `23ab4fd`.
+Three bounded recording/preparation runs added six source rows overall and confirmed
+one additional Reed removal. All 134 original rows preserve first seen, content hash
+and canonical ID; no rows were deleted. `reed:57435600` transitioned to removed with
+`confirmed_not_found` evidence in `20261010T015738Z-98ccbacc/events.jsonl`.
+
+Latest run `20261010T020216Z-dbb6b755`: five new/zero changed/zero removed this run,
+seven accepted detail observations, 29 network requests/two blocked, 25.597 seconds.
+Latest exports: 140 stored rows, 138 live (50 Indeed/40 LinkedIn/48 Reed), 136 live
+canonical jobs/two duplicate links. Partial status reflects bounded backlog and safe
+extraction failures: LinkedIn missing an unambiguous JobPosting and Indeed missing
+unambiguous selected-job metadata. Failures remain retryable; no speculative removals.
+
+Verified commands:
+- `make test`: 115 tests plus all three lifecycle fixture runs/idempotent replays pass;
+  isolated test databases removed.
+- `docker compose run --rm --no-deps crawler uv run --locked --offline python -m crawler.verify_exports`:
+  140 rows/hashes/live counts and 29 logged requests agree with Postgres.
+- `docker compose run --rm --no-deps crawler uv run --locked --offline python -m crawler.accuracy_review --run output/runs/20261010T020216Z-dbb6b755 --observed-in-run --quiet --label loom-final`:
+  all seven accepted observations have captures, description agreement and zero triage flags.
+- `docker compose run --rm --no-deps crawler uv run --locked --offline python -m crawler.accuracy_review --run output/runs/20261010T015738Z-98ccbacc --ids linkedin:4467202956 --quiet --label loom-earlier-new`:
+  additional new Jamf row has capture/description agreement/zero flags.
+- `python3 /var/folders/d4/ndfskpvx28gfdb9h90ng9fv00000gn/T/opencode/commit_audit.py`:
+  candidate/history secret audit passes; rerun after staging before commit.
+- `git diff --check` and `git check-ignore .env task.txt AGENTS.md agents.md submission-checklist.md` pass.
+
+New description texts inspected; source-evidence triage is not a general accuracy
+grade. No new live board requests were needed for this review. Next owner step:
+verify pending invitation in Settings → Collaborators, share accessible Loom URL,
+and submit repository/Loom URLs before 2026-10-10T22:12Z.
+
+Expanded local ignored `submission-checklist.md` into a readable Loom preparation
+guide: ordered setup commands, timed two-terminal walkthrough, SQL demonstrations,
+verifier explanation and speaking notes. Corrected its completed release checkboxes.
+Added source-checked function notes for reconciliation, queue/checkpoint recovery,
+parsing/validity/salary/expiry, orchestration and dedupe, including short speaking
+versions and which caller transactions establish atomicity. Source modules unchanged.
+Verified `git check-ignore submission-checklist.md`; it remains local-only. Next step
+is owner Loom sharing, access confirmation and submission as listed above.
 
 Owner-authorized release was committed as `23ab4fd18dc32670f922360e94fbcbb2d5664ba6`
 (`finalize crawler recovery accuracy and release exports`) and pushed to origin/main.
@@ -16,24 +62,24 @@ by `git diff --exit-code <snapshot-tree> HEAD -- crawler tests compose.yaml Dock
 Makefile pyproject.toml uv.lock .env.example .dockerignore README.md`. Clone location:
 approved temporary `release-clone-23ab4fd/`. Secret audit/exclusions and export verifier
 passed before commit. GitHub privacy/collaborator access cannot be inferred from SSH
-reachability and still require owner confirmation. No Loom or assessment submission.
+reachability. Owner now reports recording complete and private visibility; invitation
+acceptance/share URL/assessment submission remain unconfirmed.
 
-This verification handoff is being recorded in a small follow-up documentation commit.
-Remaining owner steps: confirm Private/gibbsdylan access, record/share Loom (local
-ignored checklist supplies outline), submit repository and Loom URLs before deadline.
+The verification handoff was committed/pushed as `b27f1a3` and its clone verified.
+Remaining owner steps: confirm gibbsdylan access, share recorded Loom, submit both URLs.
 
 Owner explicitly authorized commit/push of the verified release, with
 `submission-checklist.md` and agent instructions excluded. Root `.gitignore` now
 excludes `/submission-checklist.md`, `/AGENTS.md` and `/agents.md`; these local files
 remain available for handoff but are not release contents. Release audit, intended
 staging, commit/push and remote verification are complete. Final privacy/collaborator
-confirmation, Loom recording/share URL and assessment submission remain owner actions.
+acceptance, Loom share URL and assessment submission remain owner actions.
 
 Submission preparation is complete on the technical side. README is condensed to
 498 whitespace-delimited words; `submission-checklist.md` contains final owner actions
-and a timed <=5-minute Loom outline. No recording or assessment submission
-has been made. GitHub CLI is absent; SSH remote reachability is confirmed but does not
-prove privacy/collaborator access. Owner must verify private visibility and `gibbsdylan`.
+and a timed <=5-minute Loom outline. Owner reports recording complete; assessment
+submission is unconfirmed. GitHub CLI is absent; SSH remote reachability does not
+prove collaborator access. Owner reports Private visibility and must confirm acceptance.
 
 Final current-default rehearsal command:
 `uv run --locked --offline python /var/folders/d4/ndfskpvx28gfdb9h90ng9fv00000gn/T/opencode/rehearsal.py`.
@@ -57,7 +103,7 @@ credential-bearing URL; test behavior and the final default-runtime suite remain
 confirms release `23ab4fd18dc32670f922360e94fbcbb2d5664ba6` on remote main;
 committed remote-clone verification passed as recorded above.
 
-Release steps now: confirm private/collaborator access -> record/share Loom -> submit
+Release steps now: confirm collaborator access -> share recorded Loom -> submit
 both URLs by 2026-10-10T22:12Z. Authorized commit/push and clone verification are complete.
 Keep the next working block focused on those release actions rather than optional
 additional queue growth. Full final rehearsal evidence: `reproducibility-findings.md`.

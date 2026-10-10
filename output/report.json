@@ -1,12 +1,38 @@
 {
-  "started_at": "2026-10-09T20:32:13.478593+00:00",
+  "started_at": "2026-10-10T02:02:16.805512+00:00",
   "source_runs": {
     "linkedin": {
+      "status": "partial",
+      "discovered": 0,
+      "details_fetched": 3,
+      "details_skipped_fresh": 0,
+      "accepted": 2,
+      "rejected": {},
+      "failures": 1,
+      "pages_fetched": 0,
+      "overlapping_sightings": 0,
+      "query_runs": [],
+      "removal_confirmations": 0,
+      "discovery_artefacts_skipped": 0,
+      "artefact_queue_entries_suppressed": 0,
+      "pending_details_loaded": 3,
+      "pending_details_remaining": 145,
+      "explicit_refresh_ids": [],
+      "discovery_mode": "auto",
+      "discovery_skipped": true,
+      "discovery_skip_reason": "sufficient_pending_work",
+      "resumed_cycle": false,
+      "cycle_id": null,
+      "jobs_new": 2,
+      "jobs_changed": 0,
+      "jobs_removed": 0
+    },
+    "reed": {
       "status": "limited",
       "discovered": 0,
-      "details_fetched": 1,
+      "details_fetched": 3,
       "details_skipped_fresh": 0,
-      "accepted": 1,
+      "accepted": 3,
       "rejected": {},
       "failures": 0,
       "pages_fetched": 0,
@@ -15,29 +41,54 @@
       "removal_confirmations": 0,
       "discovery_artefacts_skipped": 0,
       "artefact_queue_entries_suppressed": 0,
-      "pending_details_loaded": 1,
-      "pending_details_remaining": 148,
-      "explicit_refresh_ids": [
-        "linkedin:4457381152"
-      ],
-      "discovery_mode": "never",
+      "pending_details_loaded": 3,
+      "pending_details_remaining": 76,
+      "explicit_refresh_ids": [],
+      "discovery_mode": "auto",
       "discovery_skipped": true,
-      "discovery_skip_reason": "explicit_queue_drain",
+      "discovery_skip_reason": "sufficient_pending_work",
       "resumed_cycle": false,
       "cycle_id": null,
-      "jobs_new": 0,
-      "jobs_changed": 1,
+      "jobs_new": 2,
+      "jobs_changed": 0,
+      "jobs_removed": 0
+    },
+    "indeed": {
+      "status": "partial",
+      "discovered": 0,
+      "details_fetched": 3,
+      "details_skipped_fresh": 0,
+      "accepted": 2,
+      "rejected": {},
+      "failures": 1,
+      "pages_fetched": 0,
+      "overlapping_sightings": 0,
+      "query_runs": [],
+      "removal_confirmations": 0,
+      "discovery_artefacts_skipped": 0,
+      "artefact_queue_entries_suppressed": 0,
+      "pending_details_loaded": 3,
+      "pending_details_remaining": 38,
+      "explicit_refresh_ids": [],
+      "discovery_mode": "auto",
+      "discovery_skipped": true,
+      "discovery_skip_reason": "sufficient_pending_work",
+      "resumed_cycle": false,
+      "cycle_id": null,
+      "jobs_new": 1,
+      "jobs_changed": 0,
       "jobs_removed": 0
     }
   },
   "limits": {
-    "pages": 1,
-    "details": 1,
+    "pages": 2,
+    "details": 3,
     "refresh_hours": 24,
-    "discovery": "never"
+    "discovery": "auto"
   },
   "queries": [
-    "software engineer"
+    "software engineer",
+    "data engineer"
   ],
   "locations": [
     "United Kingdom"
@@ -45,67 +96,117 @@
   "status": "partial",
   "indeed_resource_policy": "lean",
   "force_detail_refresh": false,
-  "refresh_ids": [
-    "linkedin:4457381152"
-  ],
-  "dedupe_rows_indexed": 0,
-  "jobs_new": 0,
-  "jobs_changed": 1,
-  "jobs_removed": 0,
-  "requests_total": 1,
-  "requests_blocked": 0,
-  "requests_by_status": {
-    "200": 1
+  "refresh_ids": [],
+  "limits_by_source": {
+    "linkedin": {
+      "pages": 2,
+      "details": 3,
+      "refresh_hours": 24,
+      "discovery": "auto"
+    },
+    "reed": {
+      "pages": 2,
+      "details": 3,
+      "refresh_hours": 24,
+      "discovery": "auto"
+    },
+    "indeed": {
+      "pages": 1,
+      "details": 3,
+      "refresh_hours": 24,
+      "discovery": "auto"
+    }
   },
-  "response_body_bytes": 311521,
+  "dedupe_rows_indexed": 0,
+  "jobs_new": 5,
+  "jobs_changed": 0,
+  "jobs_removed": 0,
+  "requests_total": 29,
+  "requests_blocked": 2,
+  "requests_by_status": {
+    "200": 22,
+    "307": 1,
+    "403": 1,
+    "error:net::ERR_BLOCKED_BY_RESPONSE": 1,
+    "error:Interrupted": 1,
+    "401": 1,
+    "302": 2
+  },
+  "response_body_bytes": 6859624,
   "requests_by_source": {
-    "linkedin": 1
+    "linkedin": 3,
+    "reed": 3,
+    "indeed": 23
   },
   "response_bytes_by_source": {
-    "linkedin": 311521
+    "linkedin": 854261,
+    "reed": 821348,
+    "indeed": 5184015
   },
   "blocked_requests_by_source": {
-    "linkedin": 0
+    "linkedin": 0,
+    "reed": 0,
+    "indeed": 2
   },
   "proxy_cost_per_gb_usd": null,
   "cost_rate_supplied": false,
   "estimated_cost_usd": null,
   "cost_per_1000_pages_usd": null,
   "cost_basis": "Decoded response bodies; proxy-billed overhead/compression not measured. Null cost means no USD/GB rate supplied.",
-  "finished_at": "2026-10-09T20:32:15.649496+00:00",
+  "finished_at": "2026-10-10T02:02:42.402205+00:00",
   "efficiency": {
-    "runtime_seconds": 2.170903,
-    "accepted_detail_observations": 1,
-    "new_listings": 0,
-    "listing_page_fetches": 1,
-    "accepted_per_request": 1.0,
-    "new_per_request": 0.0,
-    "decoded_bytes_per_accepted": 311521.0,
-    "new_per_decoded_gb": 0.0,
-    "accepted_per_minute": 27.63826849932954,
+    "runtime_seconds": 25.596693,
+    "accepted_detail_observations": 7,
+    "new_listings": 5,
+    "listing_page_fetches": 9,
+    "accepted_per_request": 0.2413793103448276,
+    "new_per_request": 0.1724137931034483,
+    "decoded_bytes_per_accepted": 979946.2857142857,
+    "new_per_decoded_gb": 728.902925291532,
+    "accepted_per_minute": 16.40836962806094,
     "cost_per_1000_listing_fetches_usd": null,
     "cost_per_1000_request_attempts_usd": null,
     "traffic_basis": "Decoded response bodies, not proxy-billed bytes; listing fetches exclude warmup/resources but their traffic is included",
     "by_source": {
       "linkedin": {
-        "accepted_detail_observations": 1,
-        "new_listings": 0,
-        "requests": 1,
-        "decoded_bytes": 311521,
-        "accepted_per_request": 1.0,
-        "decoded_bytes_per_accepted": 311521.0,
+        "accepted_detail_observations": 2,
+        "new_listings": 2,
+        "requests": 3,
+        "decoded_bytes": 854261,
+        "accepted_per_request": 0.6666666666666666,
+        "decoded_bytes_per_accepted": 427130.5,
         "block_rate": 0.0,
+        "discovery_skipped": true
+      },
+      "reed": {
+        "accepted_detail_observations": 3,
+        "new_listings": 2,
+        "requests": 3,
+        "decoded_bytes": 821348,
+        "accepted_per_request": 1.0,
+        "decoded_bytes_per_accepted": 273782.6666666667,
+        "block_rate": 0.0,
+        "discovery_skipped": true
+      },
+      "indeed": {
+        "accepted_detail_observations": 2,
+        "new_listings": 1,
+        "requests": 23,
+        "decoded_bytes": 5184015,
+        "accepted_per_request": 0.08695652173913043,
+        "decoded_bytes_per_accepted": 2592007.5,
+        "block_rate": 0.08695652173913043,
         "discovery_skipped": true
       }
     }
   },
-  "request_log": "output/runs/20261009T203213Z-0c9001ed/requests.jsonl",
+  "request_log": "output/runs/20261010T020216Z-dbb6b755/requests.jsonl",
   "jobs_by_source": {
-    "indeed": 49,
-    "linkedin": 37,
-    "reed": 47
+    "indeed": 50,
+    "linkedin": 40,
+    "reed": 48
   },
-  "canonical_jobs_live": 131,
+  "canonical_jobs_live": 136,
   "duplicates_linked": 2,
-  "jobs_export_sha256": "34c4141fb9122dabea1fb7ed78ab0ee65d1a648722b36f5eb52e568ce8135e5c"
+  "jobs_export_sha256": "bdd2d4d6dbad248e44d320eb4c10a8fc0cc80d2ac86c06882c14fafe068fb86f"
 }

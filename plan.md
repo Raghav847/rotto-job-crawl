@@ -265,12 +265,12 @@ passed. All 88 tests plus fixture runs/replays pass; full evidence is in
 - [x] Verify `output/report.json` contains `started_at`, `finished_at`, `requests_total`, `requests_blocked`, `requests_by_status`, `jobs_by_source`, `duplicates_linked`, `jobs_new`, `jobs_removed`, `jobs_changed`, and `estimated_cost_usd`.
 - [x] Source counts represent live database totals; lifecycle counts are strictly per-run. Include source outcomes and configured limits as partial-run context.
 - [x] Finalize the compact submission README (498 words): setup, access/failed approaches, lifecycle/recovery, dedupe, controls and cost/1,000 with explicit rate/traffic assumptions.
-- [ ] Record the Loom: demonstrate a real crawl and explain access, reconciliation, safe removals, dedupe, and efficiency decisions in under five minutes.
+- [x] Record the Loom (owner reports complete); share URL/access/duration confirmation still outstanding.
 - [x] Review tracked files for credentials; commit the latest real exports and intended code changes when ready to submit.
 - [ ] Confirm private repository access for `gibbsdylan`, push before the deadline, and submit repository and Loom links through the assessment form.
 - [x] Owner-authorized release `23ab4fd` committed/pushed and fresh remote clone verified;
   local agent instructions/submission checklist remain ignored. Private visibility/
-  collaborator access and owner Loom/assessment submission are still open.
+  collaborator acceptance, Loom sharing and assessment submission are still open.
 
 **Acceptance:** the evaluator can reproduce the live crawl and offline tests without manual code changes, and the committed exports are substantiated by actual runs.
 
@@ -295,15 +295,25 @@ plus all fixture runs/replays; exports verified after crawls/tests. All eleven l
 table fingerprints, intended export hashes, staging and HEAD stayed unchanged; isolated
 resources were cleaned up. Secret audit/exclusions passed for candidate files/staging/
 history. Final original exports verify at 134 stored/133 live/131 canonical jobs.
-The SSH remote is reachable but main is still the old checkpoint; gh is unavailable
-and privacy/collaborator access unverified. Explicit commit/push, committed remote-clone,
-owner Loom recording/link and actual submission are the remaining release actions.
+Release and documentation handoff were subsequently committed/pushed as `23ab4fd`
+and `b27f1a3`; remote clone verified. Owner now reports Private visibility, Loom
+recording complete and evaluator invitation sent. Acceptance, Loom sharing and
+actual submission remain open; gh is unavailable for independent invitation checks.
 `submission-checklist.md` supplies owner steps and a 4m40s walkthrough outline.
+
+**Post-Loom review (2026-10-10):** latest exports verify at 140 stored/138 live/136
+live canonical jobs, including six new source rows across recording runs and one
+additional confirmed Reed not-found removal. All original first-seen/hash/canonical
+values remain stable. `make test` passes 115 tests plus fixture runs/replays. Latest
+run correctly reports partial results: five new listings, 29 requests/two blocked,
+zero content changes/removals this run. Saved-evidence checks cover all six new rows
+with description agreement/zero triage flags. Runtime code is unchanged; release
+updates are the current real exports and handoff documentation.
 
 ## Immediate next work session
 
-1. Owner confirms Private visibility and `gibbsdylan` access; release `23ab4fd` is already pushed and remotely cloned/verified.
-2. Record/share the <=5-minute Loom using the local ignored outline and submit repository/Loom links before 2026-10-10T22:12Z.
-3. Optional later improvements: further bounded sampled queue growth (265 pending) and confirmed-positive dedupe holdout. These do not justify a general 95%/recall claim from the current development samples.
+1. Owner confirms `gibbsdylan` invitation acceptance/access; Private visibility is owner-reported.
+2. Share the recorded <=5-minute Loom and submit repository/Loom links before 2026-10-10T22:12Z.
+3. Optional later improvements: further bounded sampled queue growth (259 pending) and confirmed-positive dedupe holdout. These do not justify a general 95%/recall claim from the current development samples.
 
 Keep evidence of access experiments and unresolved decisions as implementation progresses. Finalize source-specific details from observed behaviour rather than assumptions.
